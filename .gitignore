@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+
+# Node (needed at CP3)
+node_modules/
+dist/
+
+# Secrets
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

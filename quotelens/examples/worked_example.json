@@ -1,0 +1,15 @@
+{
+  "program": "conventional",
+  "transaction_type": "purchase",
+  "occupancy": "primary",
+  "property_type": "sfr_detached",
+  "purchase_price": 500000,
+  "loan_amount": 400000,
+  "fico": 745,
+  "units": 1,
+  "term_months": 360,
+  "is_arm": false,
+  "lock_days": 30,
+  "cltv": null,
+  "dti_back": 36.0
+}
