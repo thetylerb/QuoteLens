@@ -2,10 +2,13 @@
 """
 QuoteLens CLI — reads a scenario JSON from a file path or stdin, prints
 eligibility, the rate stack, and the adjustment waterfall for the par row.
+With --text, extracts a scenario from free text first (see engine/extraction.py).
 
 Usage:
     python cli.py examples/worked_example.json
     cat examples/worked_example.json | python cli.py
+    python cli.py --text "I've got a client looking at a $525k place..."
+    python cli.py --text "..." --force-live
 """
 
 from __future__ import annotations
@@ -16,7 +19,8 @@ import sys
 if sys.stdout.encoding is not None and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
-from engine import config
+from engine import config, extraction
+from engine.extraction import InsufficientDataError
 from engine.models import Occupancy, Program, PropertyType, QuoteRequest, TransactionType
 from engine.quote import generate_quote
 
@@ -127,7 +131,76 @@ def _print_costs(result) -> None:
         print()
 
 
+def _print_extraction(extraction_result) -> None:
+    src_label = {"live": "LIVE (Claude API)", "cache": "CACHE (replayed)", "fallback": "FALLBACK (regex parser, not the model)"}
+    print("=" * 78)
+    print("QuoteLens — Scenario Extraction")
+    print("=" * 78)
+    print(f"Source:     {src_label.get(extraction_result.source, extraction_result.source)}")
+    print(f"Confidence: {extraction_result.confidence:.2f}")
+    if extraction_result.provisional:
+        print()
+        print("!" * 78)
+        print("! PROVISIONAL — confidence below 0.85. Confirm these fields with the")
+        print("! borrower before treating this quote as real.")
+        print("!" * 78)
+    print()
+
+    evidence = extraction_result.evidence
+    stated = {k: v for k, v in extraction_result.fields.items() if v is not None and k in evidence}
+    print("STATED (from the text)")
+    if stated:
+        for k, v in stated.items():
+            print(f"  {k:<20s} = {v!r:<15s}  <- \"{evidence[k]}\"")
+    else:
+        print("  (nothing the parser could anchor to explicit text)")
+    print()
+
+    print("ASSUMED (filled in, not stated)")
+    if extraction_result.assumptions:
+        for a in extraction_result.assumptions:
+            print(f"  {a.field:<20s} = {a.assumed_value!r:<15s}  reason: {a.reason}")
+    else:
+        print("  (none)")
+    print()
+
+    if extraction_result.notes:
+        print(f"NOTES: {extraction_result.notes}")
+        print()
+
+
+def _run_from_text(text: str, *, force_live: bool) -> None:
+    extraction_result = extraction.extract(text, force_live=force_live)
+    _print_extraction(extraction_result)
+
+    try:
+        request = extraction.to_quote_request(extraction_result)
+    except InsufficientDataError as exc:
+        print(f"COULD NOT BUILD A QUOTE: {exc}")
+        return
+
+    result = generate_quote(request)
+    _print_header(result)
+    _print_eligibility(result)
+    if not result.eligibility.eligible:
+        print("(Rate stack and waterfall withheld — request is not eligible.)")
+        return
+    _print_rate_stack(result)
+    _print_waterfall(result)
+    _print_costs(result)
+
+
 def main() -> None:
+    args = sys.argv[1:]
+    if args and args[0] == "--text":
+        if len(args) < 2:
+            print("Usage: python cli.py --text \"<scenario description>\" [--force-live]", file=sys.stderr)
+            sys.exit(1)
+        text = args[1]
+        force_live = "--force-live" in args[2:]
+        _run_from_text(text, force_live=force_live)
+        return
+
     scenario = _read_scenario()
     request = _load_request(scenario)
     result = generate_quote(request)
