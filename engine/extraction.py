@@ -114,9 +114,19 @@ def _build_result(payload: dict, *, source: str) -> ExtractionResult:
         confidence=float(payload.get("confidence", 0.0)),
         fields={k: payload.get("fields", {}).get(k) for k in EXTRACTION_FIELDS},
         assumptions=assumptions,
-        evidence=dict(payload.get("evidence", {})),
+        evidence=_normalize_evidence(payload.get("evidence", {})),
         notes=payload.get("notes", "") or "",
     )
+
+
+def _normalize_evidence(raw: object) -> dict[str, str]:
+    """Accepts either the fallback parser's {field: phrase} dict or the live
+    API's [{"field": ..., "phrase": ...}, ...] array (see RESPONSE_SCHEMA's
+    `evidence` comment) and returns the {field: phrase} shape the rest of the
+    codebase (cli.py, tests) expects."""
+    if isinstance(raw, dict):
+        return {k: v for k, v in raw.items() if v is not None}
+    return {entry["field"]: entry["phrase"] for entry in raw}
 
 
 def _hash_text(text: str) -> str:
@@ -150,34 +160,45 @@ def _cache_store(key: str, payload: dict) -> None:
 # Live path (Claude)
 # ---------------------------------------------------------------------------
 
+# These seven are the ones the system prompt requires Claude to always fill
+# (defaulting + recording an assumption rather than leaving null) — see the
+# "Exception:" rule below. Kept required + non-nullable in the schema; every
+# other field is a genuinely optional property (simply omitted when unstated)
+# rather than a nullable one. Anthropic's structured-output compiler caps a
+# schema at 16 union-typed ("type": [...] or anyOf) parameters — modeling all
+# 20 fields as nullable blew past that (41 unions); omission-as-absent avoids
+# the union budget entirely for everything except assumed_value below, which
+# genuinely can be one of several JSON types.
+_ALWAYS_FILLED_FIELDS = ["fico", "occupancy", "property_type", "purpose", "program", "term_years", "lock_days"]
+
 RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
         "fields": {
             "type": "object",
             "properties": {
-                "purchase_price": {"type": ["number", "null"]},
-                "loan_amount": {"type": ["number", "null"]},
-                "down_payment": {"type": ["number", "null"]},
-                "down_payment_pct": {"type": ["number", "null"]},
-                "fico": {"type": ["integer", "null"]},
-                "occupancy": {"type": ["string", "null"], "enum": ["primary", "second_home", "investment", None]},
-                "property_type": {"type": ["string", "null"], "enum": ["sfr_detached", "condo", "manufactured", None]},
-                "units": {"type": ["integer", "null"]},
-                "purpose": {"type": ["string", "null"], "enum": ["purchase", "limited_cash_out", "cash_out", None]},
-                "program": {"type": ["string", "null"], "enum": ["conventional", "fha", "va", "usda", None]},
-                "term_years": {"type": ["integer", "null"]},
-                "state": {"type": ["string", "null"]},
-                "county": {"type": ["string", "null"]},
-                "self_employed": {"type": ["boolean", "null"]},
-                "first_time_buyer": {"type": ["boolean", "null"]},
-                "va_eligible": {"type": ["boolean", "null"]},
-                "va_first_use": {"type": ["boolean", "null"]},
-                "monthly_income": {"type": ["number", "null"]},
-                "monthly_debts": {"type": ["number", "null"]},
-                "lock_days": {"type": ["integer", "null"]},
+                "purchase_price": {"type": "number"},
+                "loan_amount": {"type": "number"},
+                "down_payment": {"type": "number"},
+                "down_payment_pct": {"type": "number"},
+                "fico": {"type": "integer"},
+                "occupancy": {"type": "string", "enum": ["primary", "second_home", "investment"]},
+                "property_type": {"type": "string", "enum": ["sfr_detached", "condo", "manufactured"]},
+                "units": {"type": "integer"},
+                "purpose": {"type": "string", "enum": ["purchase", "limited_cash_out", "cash_out"]},
+                "program": {"type": "string", "enum": ["conventional", "fha", "va", "usda"]},
+                "term_years": {"type": "integer"},
+                "state": {"type": "string"},
+                "county": {"type": "string"},
+                "self_employed": {"type": "boolean"},
+                "first_time_buyer": {"type": "boolean"},
+                "va_eligible": {"type": "boolean"},
+                "va_first_use": {"type": "boolean"},
+                "monthly_income": {"type": "number"},
+                "monthly_debts": {"type": "number"},
+                "lock_days": {"type": "integer"},
             },
-            "required": EXTRACTION_FIELDS,
+            "required": _ALWAYS_FILLED_FIELDS,
             "additionalProperties": False,
         },
         "confidence": {"type": "number"},
@@ -187,14 +208,31 @@ RESPONSE_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "field": {"type": "string"},
-                    "assumed_value": {},
+                    "assumed_value": {"anyOf": [{"type": "string"}, {"type": "number"}, {"type": "boolean"}]},
                     "reason": {"type": "string"},
                 },
                 "required": ["field", "assumed_value", "reason"],
                 "additionalProperties": False,
             },
         },
-        "evidence": {"type": "object", "additionalProperties": {"type": "string"}},
+        # An array of {field, phrase} rather than a sparse field->phrase map:
+        # a map would need all 20 EXTRACTION_FIELDS as optional properties,
+        # and combined with `fields`' own optional properties that blows past
+        # the compiler's 24-optional-parameter cap. Array items have no
+        # optional properties (field/phrase are both always required),
+        # so this costs nothing against that budget.
+        "evidence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field": {"type": "string", "enum": EXTRACTION_FIELDS},
+                    "phrase": {"type": "string"},
+                },
+                "required": ["field", "phrase"],
+                "additionalProperties": False,
+            },
+        },
         "notes": {"type": "string"},
     },
     "required": ["fields", "confidence", "assumptions", "evidence", "notes"],
@@ -212,21 +250,24 @@ occupancy in {{primary, second_home, investment}}. property_type in \
 cash_out}}. program in {{conventional, fha, va, usda}}.
 
 Rules:
-- Set a field to null if the text genuinely does not address it. Do not invent
-  a value and place it in `fields` as if stated — every filled gap must also
-  appear in `assumptions` with the field, the value you chose, and why.
+- Omit a field from `fields` entirely if the text genuinely does not address
+  it — the schema does not accept null for these, so leave the key out
+  rather than guessing. Do not invent a value and place it in `fields` as if
+  stated — every filled gap must also appear in `assumptions` with the
+  field, the value you chose, and why.
 - Exception: fico, occupancy, property_type, purpose, program, term_years, and
-  lock_days are needed to produce any quote at all. If one of these is truly
-  unstated, fill it with a reasonable default (fico=700, occupancy=primary,
-  property_type=sfr_detached, purpose=purchase, program=conventional,
-  term_years=30, lock_days=30) AND record it in `assumptions` with that exact
-  reasoning — never leave these seven null. Every other field (state, county,
-  self_employed, first_time_buyer, va_eligible, monthly_income,
-  monthly_debts, down_payment/down_payment_pct) may stay null when genuinely
-  absent — do not manufacture a value for those just to fill the field.
-- `evidence` maps a field name to the exact phrase from the input that supports
-  it, but ONLY for fields the borrower actually stated — never for assumed
-  fields.
+  lock_days are required keys and are needed to produce any quote at all. If
+  one of these is truly unstated, fill it with a reasonable default
+  (fico=700, occupancy=primary, property_type=sfr_detached, purpose=purchase,
+  program=conventional, term_years=30, lock_days=30) AND record it in
+  `assumptions` with that exact reasoning — never omit these seven. Every
+  other field (state, county, self_employed, first_time_buyer, va_eligible,
+  monthly_income, monthly_debts, down_payment/down_payment_pct) may be
+  omitted when genuinely absent — do not manufacture a value for those just
+  to fill the field.
+- `evidence` is a list of {{field, phrase}} entries, one per field the borrower
+  actually stated, giving the exact phrase from the input that supports it —
+  never include an entry for an assumed field.
 - `confidence` is 0.0-1.0 for the extraction as a whole. Be honest and
   conservative: a scenario with several unstated required fields should not
   score above ~0.7-0.8; a scenario with a genuine ambiguity should score lower
@@ -281,17 +322,30 @@ def _extract_live(text: str, api_key: str) -> dict:
 _HEDGE_WORDS = re.compile(r"\b(around|about|approx(?:imately)?|roughly|~)\b", re.IGNORECASE)
 
 # A "money-shaped" number: needs a $ sign, comma-grouped thousands, or a
-# k/thousand suffix — never a bare 2-3 digit number. Without this, a FICO
-# score or a loan term ("730", "30") would false-positive as a dollar figure.
-_MONEY = r"\$\s*[\d,]+(?:\.\d+)?|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d+(?:\.\d+)?\s*(?:k|K|thousand)\b"
+# k/thousand/M/million suffix — never a bare 2-3 digit number. Without this,
+# a FICO score or a loan term ("730", "30") would false-positive as a dollar
+# figure. The k/M-suffix alternatives are tried before the plain-$-digits
+# alternative: regex alternation picks the leftmost alternative that matches
+# at a given start position (not the longest), so "$450k" would otherwise
+# match just "$450" via the plain-digits branch and silently drop the
+# suffix — see _money_value.
+_MONEY = (
+    r"\$\s*\d+(?:\.\d+)?\s*(?:k|K|m|M|thousand|million)\b"
+    r"|\$\s*[\d,]+(?:\.\d+)?"
+    r"|\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b"
+    r"|\b\d+(?:\.\d+)?\s*(?:k|K|thousand|m|M|million)\b"
+)
 
 
 def _money_value(matched_text: str) -> float:
     suffix_k = bool(re.search(r"(?:k|thousand)\s*$", matched_text, re.IGNORECASE))
+    suffix_m = bool(re.search(r"(?:m|million)\s*$", matched_text, re.IGNORECASE))
     digits = re.sub(r"[^\d.]", "", matched_text)
     value = float(digits)
     if suffix_k:
         value *= 1000
+    elif suffix_m:
+        value *= 1_000_000
     return value
 
 
@@ -313,6 +367,63 @@ def _find_any_money(text: str) -> list[tuple[float, str, int]]:
     for m in re.finditer(_MONEY, text):
         out.append((_money_value(m.group(0)), m.group(0).strip(), m.start()))
     return out
+
+
+_PRICE_WORDS = ["price", "purchase price", "place", "home", "house", "property",
+                "buying a", "buying", "purchasing", "purchase"]
+_LOAN_WORDS = ["loan amount", "loan of", "loan for", "loan", "borrowing", "financing"]
+
+
+def _nearest_keyword_distance(window: str, window_start: int, match_start: int, match_end: int, keywords: list[str]) -> int | None:
+    best = None
+    for kw in keywords:
+        for kwm in re.finditer(r"\b" + re.escape(kw) + r"\b", window):
+            kw_pos = window_start + kwm.start()
+            dist = min(abs(kw_pos - match_start), abs(kw_pos - match_end))
+            if best is None or dist < best:
+                best = dist
+    return best
+
+
+# Splits on a comma/period/semicolon EXCEPT one sitting between two digits
+# ("$450,000", "$1.2M") — so clause boundaries never break a money figure
+# apart. Anchor-word matching is scoped to one clause at a time: without
+# this, "Purchase price is $500k, loan amount $400k." would let "loan
+# amount" (2 chars after the comma) out-distance "purchase price" (19 chars
+# before it) for the FIRST figure, misassigning the price to the loan.
+_CLAUSE_SPLIT = re.compile(r"(?<!\d)[.,;](?!\d)")
+
+
+def _find_price_and_loan(text: str) -> tuple[tuple[float, str] | None, tuple[float, str] | None]:
+    """Classify each dollar figure in the text as purchase price or loan
+    amount by whichever anchor keyword sits closer to it (within the same
+    clause), rather than searching for price and loan anchors independently
+    — otherwise a single figure sitting near both a price word and a loan
+    word (e.g. "financing of $300,000 on a home") would get claimed as both.
+    Returns the first figure classified as price and the first classified
+    as loan (a figure already taken as one is never reconsidered for the
+    other).
+    """
+    price_hit = None
+    loan_hit = None
+    for clause in _CLAUSE_SPLIT.split(text):
+        clause_lower = clause.lower()
+        for m in re.finditer(_MONEY, clause):
+            window_start = max(0, m.start() - 30)
+            window = clause_lower[window_start: m.end() + 20]
+            price_dist = _nearest_keyword_distance(window, window_start, m.start(), m.end(), _PRICE_WORDS)
+            loan_dist = _nearest_keyword_distance(window, window_start, m.start(), m.end(), _LOAN_WORDS)
+
+            if price_dist is None and loan_dist is None:
+                continue
+            is_price = loan_dist is None or (price_dist is not None and price_dist <= loan_dist)
+            if is_price:
+                if price_hit is None:
+                    price_hit = (_money_value(m.group(0)), m.group(0).strip())
+            else:
+                if loan_hit is None:
+                    loan_hit = (_money_value(m.group(0)), m.group(0).strip())
+    return price_hit, loan_hit
 
 
 def _extract_fallback(text: str) -> dict:
@@ -342,8 +453,7 @@ def _extract_fallback(text: str) -> dict:
             evidence["down_payment"] = dp_money[1]
 
     # --- purchase price vs. loan amount ----------------------------------
-    price_hit = _find_money_near(text, ["price", "place", "home", "house", "property", "buying a", "purchasing", "purchase"])
-    loan_hit = _find_money_near(text, ["loan amount", "loan of", "borrowing", "loan for"])
+    price_hit, loan_hit = _find_price_and_loan(text)
 
     if price_hit:
         fields["purchase_price"] = price_hit[0]

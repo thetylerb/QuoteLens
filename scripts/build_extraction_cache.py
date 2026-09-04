@@ -41,24 +41,39 @@ def main() -> None:
 
     extraction.CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    api_key = os.environ["ANTHROPIC_API_KEY"]
+    failures = 0
+
     for i, text in enumerate(scenarios, start=1):
         key = extraction._hash_text(text)
         if extraction._cache_lookup(key) is not None:
             print(f"[{i}/{len(scenarios)}] already cached — skipping: {text[:60]!r}")
             continue
 
-        print(f"[{i}/{len(scenarios)}] calling Claude: {text[:60]!r}")
+        print(f"[{i}/{len(scenarios)}] live call: {text[:60]!r}")
         try:
-            result = extraction.extract(text, force_live=True)
+            payload = extraction._extract_live(text, api_key)
         except Exception as exc:
-            print(f"Cache write failed for scenario {i}: {exc!r}", file=sys.stderr)
-            sys.exit(1)
-        print(f"    -> source={result.source} confidence={result.confidence:.2f}")
+            failures += 1
+            print(f"    -> FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
+            continue
+
+        extraction._cache_store(key, payload)
+        result = extraction._build_result(payload, source="live")
+        print(f"    -> source=live confidence={result.confidence:.2f}")
 
     cache_path = extraction.CACHE_PATH.resolve()
     entry_count = len(json.loads(cache_path.read_text(encoding="utf-8"))) if cache_path.exists() else 0
     print(f"Cache path: {cache_path}")
     print(f"Entries: {entry_count}")
+    print(f"Failures: {failures}")
+
+    if entry_count == 0:
+        print("FATAL: cache has 0 entries — every scenario failed or none were processed.", file=sys.stderr)
+        sys.exit(1)
+    if failures:
+        print(f"FATAL: {failures}/{len(scenarios)} scenario(s) failed to extract live.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

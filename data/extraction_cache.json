@@ -1,0 +1,569 @@
+{
+  "1f6cc4d34f0cdc80d5a93f8608f30fcd0e06f914c1eb80677b9e6584ba662115": {
+    "assumptions": [
+      {
+        "assumed_value": "sfr_detached",
+        "field": "property_type",
+        "reason": "Text says 'duplex' (2 units) but does not state whether it is a condo or manufactured unit; the enum has no multi-family value, so sfr_detached was chosen as the non-condo, non-manufactured category to unblock a quote \u2014 the condo vs. non-condo distinction is a material LLPA difference and should be confirmed."
+      }
+    ],
+    "confidence": 0.85,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "purchasing a $275,000 duplex"
+      },
+      {
+        "field": "down_payment_pct",
+        "phrase": "25% down"
+      },
+      {
+        "field": "fico",
+        "phrase": "credit 680"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "as a rental property"
+      },
+      {
+        "field": "units",
+        "phrase": "duplex"
+      },
+      {
+        "field": "purpose",
+        "phrase": "Investor purchasing"
+      },
+      {
+        "field": "program",
+        "phrase": "conventional"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      },
+      {
+        "field": "lock_days",
+        "phrase": "30-day lock"
+      }
+    ],
+    "fields": {
+      "down_payment_pct": 25,
+      "fico": 680,
+      "lock_days": 30,
+      "occupancy": "investment",
+      "program": "conventional",
+      "property_type": "sfr_detached",
+      "purchase_price": 275000,
+      "purpose": "purchase",
+      "term_years": 30,
+      "units": 2
+    },
+    "notes": "FICO of 680 sits exactly on a common pricing band edge, so a small score change either direction would move the price materially; also confirm the duplex's project type (condo vs. non-condo) since property_type was assumed."
+  },
+  "313b0301d3fbf573b8f136779289fbb53fdc3cf50770949d4d8110a3196685cb": {
+    "assumptions": [
+      {
+        "assumed_value": "primary",
+        "field": "occupancy",
+        "reason": "Not stated; occupancy is a required field for any quote, so the default 'primary' was applied."
+      },
+      {
+        "assumed_value": "sfr_detached",
+        "field": "property_type",
+        "reason": "Text says only 'property' with no type; property_type is required for any quote, so the default 'sfr_detached' was applied."
+      },
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "No lock period mentioned; lock_days is required for any quote, so the default of 30 days was applied."
+      },
+      {
+        "assumed_value": 510000,
+        "field": "loan_amount",
+        "reason": "Not stated directly; derived arithmetically as $600,000 price less 15% down."
+      },
+      {
+        "assumed_value": 90000,
+        "field": "down_payment",
+        "reason": "Not stated as a dollar figure; derived arithmetically as 15% of the stated $600,000 price."
+      }
+    ],
+    "confidence": 0.78,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "purchase a $600,000 property"
+      },
+      {
+        "field": "purpose",
+        "phrase": "wants to purchase"
+      },
+      {
+        "field": "fico",
+        "phrase": "credit score 705"
+      },
+      {
+        "field": "down_payment_pct",
+        "phrase": "15% down"
+      },
+      {
+        "field": "program",
+        "phrase": "conventional financing"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year term"
+      }
+    ],
+    "fields": {
+      "down_payment": 90000,
+      "down_payment_pct": 15,
+      "fico": 705,
+      "loan_amount": 510000,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "conventional",
+      "property_type": "sfr_detached",
+      "purchase_price": 600000,
+      "purpose": "purchase",
+      "term_years": 30
+    },
+    "notes": "FICO of 705 sits only 5 points above the 700 band edge and 15 below 720, so a small score revision could move pricing materially; occupancy and property type were defaulted, not stated."
+  },
+  "3a98928ed638c9f832287e34946a008fa4ebb7e46a06ae29a4712c5c0565346f": {
+    "assumptions": [
+      {
+        "assumed_value": 525000,
+        "field": "purchase_price",
+        "reason": "The text gives a single unlabeled dollar figure ('has $525,000 to work with') with no anchor word for price vs. loan amount and no down-payment percentage to triangulate from; interpreted as purchase price as the most common reading, but it could plausibly be the loan amount."
+      }
+    ],
+    "confidence": 0.68,
+    "evidence": [
+      {
+        "field": "fico",
+        "phrase": "credit 730"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "primary residence"
+      },
+      {
+        "field": "property_type",
+        "phrase": "single family"
+      },
+      {
+        "field": "purpose",
+        "phrase": "primary residence purchase"
+      },
+      {
+        "field": "program",
+        "phrase": "conventional"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      },
+      {
+        "field": "lock_days",
+        "phrase": "30-day lock"
+      }
+    ],
+    "fields": {
+      "fico": 730,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "conventional",
+      "property_type": "sfr_detached",
+      "purchase_price": 525000,
+      "purpose": "purchase",
+      "term_years": 30
+    },
+    "notes": "The $525,000 is an unlabeled figure assumed to be purchase price rather than loan amount, and no down payment or LTV was stated, so loan sizing is unresolved; also note FICO 730 sits between the 720 and 740 band edges, so a small score swing either way would move pricing materially."
+  },
+  "55790d21238a0e72b192affc81e025739d83220f907bef57b8142d01c2902bbc": {
+    "assumptions": [
+      {
+        "assumed_value": 90000,
+        "field": "down_payment",
+        "reason": "Derived arithmetically from the stated $450,000 purchase price and stated 20% down, not stated directly."
+      },
+      {
+        "assumed_value": 360000,
+        "field": "loan_amount",
+        "reason": "Derived arithmetically as purchase price minus 20% down; the borrower did not state a loan amount."
+      }
+    ],
+    "confidence": 0.95,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "buying a $450,000 single family home"
+      },
+      {
+        "field": "property_type",
+        "phrase": "single family home"
+      },
+      {
+        "field": "state",
+        "phrase": "Austin, TX"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "as her primary residence"
+      },
+      {
+        "field": "fico",
+        "phrase": "Credit score 760"
+      },
+      {
+        "field": "down_payment_pct",
+        "phrase": "putting 20% down"
+      },
+      {
+        "field": "program",
+        "phrase": "conventional loan"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      },
+      {
+        "field": "lock_days",
+        "phrase": "45-day rate lock"
+      },
+      {
+        "field": "purpose",
+        "phrase": "Sarah is buying"
+      }
+    ],
+    "fields": {
+      "down_payment": 90000,
+      "down_payment_pct": 20,
+      "fico": 760,
+      "loan_amount": 360000,
+      "lock_days": 45,
+      "occupancy": "primary",
+      "program": "conventional",
+      "property_type": "sfr_detached",
+      "purchase_price": 450000,
+      "purpose": "purchase",
+      "state": "TX",
+      "term_years": 30
+    },
+    "notes": "FICO 760 is stated exactly but sits precisely on a common pricing band edge (760+), so any downward correction of even a few points would move it into a worse tier; county was not stated and was left blank rather than inferred from \"Austin\"."
+  },
+  "6907df82b189914cb47ddbbecde09c4878f3fd879db7d4e81aacf1c0fcfdbadf": {
+    "assumptions": [
+      {
+        "assumed_value": "conventional",
+        "field": "program",
+        "reason": "Program not stated; conventional is the default needed to produce any quote."
+      },
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "Lock period not stated; 30 days is the default needed to produce any quote."
+      }
+    ],
+    "confidence": 0.82,
+    "evidence": [
+      {
+        "field": "loan_amount",
+        "phrase": "needs a $310,000 loan amount"
+      },
+      {
+        "field": "fico",
+        "phrase": "FICO 715"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "primary residence"
+      },
+      {
+        "field": "property_type",
+        "phrase": "$500,000 condo"
+      },
+      {
+        "field": "purpose",
+        "phrase": "wants a cash-out refinance"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      },
+      {
+        "field": "self_employed",
+        "phrase": "Self-employed borrower with variable income"
+      }
+    ],
+    "fields": {
+      "fico": 715,
+      "loan_amount": 310000,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "conventional",
+      "property_type": "condo",
+      "purpose": "cash_out",
+      "self_employed": true,
+      "term_years": 30
+    },
+    "notes": "The $500,000 figure is the condo's value on a refinance, not a purchase price, so purchase_price was left unset; also note FICO 715 sits just under the common 720 band edge, where a small score swing would change pricing materially."
+  },
+  "6b58cbd774730342ccec3b4a37fc6bf076307b58293243dc182c12e8816d6dbd": {
+    "assumptions": [
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "Lock period not stated; used engine default of 30 days."
+      },
+      {
+        "assumed_value": 400000,
+        "field": "purchase_price",
+        "reason": "This is a refinance, so the $400,000 figure is the current property value, not a purchase price; mapped into purchase_price because the schema has no separate property-value field and the engine needs a value basis for LTV."
+      }
+    ],
+    "confidence": 0.85,
+    "evidence": [
+      {
+        "field": "loan_amount",
+        "phrase": "needs a $370,000 loan amount"
+      },
+      {
+        "field": "fico",
+        "phrase": "credit 640"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "primary residence"
+      },
+      {
+        "field": "property_type",
+        "phrase": "single family"
+      },
+      {
+        "field": "purpose",
+        "phrase": "cash-out refinance"
+      },
+      {
+        "field": "program",
+        "phrase": "FHA"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      }
+    ],
+    "fields": {
+      "fico": 640,
+      "loan_amount": 370000,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "fha",
+      "property_type": "sfr_detached",
+      "purchase_price": 400000,
+      "purpose": "cash_out",
+      "term_years": 30
+    },
+    "notes": "FICO 640 sits exactly on a common pricing band edge (640 boundary), so a small score move either way changes the price materially; also note the $400,000 is an estimated property value on a refi, not a purchase price, and implies roughly 92.5% LTV."
+  },
+  "833c39880b0673336b236d1b66516df9e2e9b3bce94d2376e706dce898a71982": {
+    "assumptions": [
+      {
+        "assumed_value": 700,
+        "field": "fico",
+        "reason": "Credit score not stated; using engine default of 700 because fico is required to produce any quote."
+      },
+      {
+        "assumed_value": "primary",
+        "field": "occupancy",
+        "reason": "Occupancy not stated; using engine default of primary because occupancy is required to produce any quote."
+      },
+      {
+        "assumed_value": "conventional",
+        "field": "program",
+        "reason": "Loan program not stated; using engine default of conventional because program is required to produce any quote."
+      },
+      {
+        "assumed_value": 30,
+        "field": "term_years",
+        "reason": "Loan term not stated; using engine default of 30 years because term_years is required to produce any quote."
+      },
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "Lock period not stated; using engine default of 30 days because lock_days is required to produce any quote."
+      }
+    ],
+    "confidence": 0.5,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "buying a $450,000 single family home"
+      },
+      {
+        "field": "purpose",
+        "phrase": "is buying"
+      },
+      {
+        "field": "property_type",
+        "phrase": "single family home"
+      },
+      {
+        "field": "state",
+        "phrase": "Austin, TX"
+      }
+    ],
+    "fields": {
+      "fico": 700,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "conventional",
+      "property_type": "sfr_detached",
+      "purchase_price": 450000,
+      "purpose": "purchase",
+      "state": "TX",
+      "term_years": 30
+    },
+    "notes": "Only price, property type, purpose, and state were stated \u2014 FICO, occupancy, program, term, and lock period are all engine defaults, and no down payment or loan amount was given, so LTV cannot be determined."
+  },
+  "8429c21663fbc68873af2330edb51148145b7725bbdb1407c2692158aa1cd635": {
+    "assumptions": [
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "Lock period not stated; lock_days is required to produce a quote, so the 30-day default was applied."
+      },
+      {
+        "assumed_value": 380000,
+        "field": "loan_amount",
+        "reason": "Not stated directly; derived from the $380,000 purchase price with zero down payment (excludes any financed VA funding fee)."
+      }
+    ],
+    "confidence": 0.86,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "$380,000 purchase price"
+      },
+      {
+        "field": "down_payment",
+        "phrase": "no down payment"
+      },
+      {
+        "field": "down_payment_pct",
+        "phrase": "no down payment"
+      },
+      {
+        "field": "fico",
+        "phrase": "credit around 690"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "primary residence"
+      },
+      {
+        "field": "property_type",
+        "phrase": "single family"
+      },
+      {
+        "field": "purpose",
+        "phrase": "buying his first home"
+      },
+      {
+        "field": "program",
+        "phrase": "VA financing"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30-year fixed"
+      },
+      {
+        "field": "first_time_buyer",
+        "phrase": "buying his first home"
+      },
+      {
+        "field": "va_eligible",
+        "phrase": "Veteran buying his first home with VA financing"
+      },
+      {
+        "field": "va_first_use",
+        "phrase": "first time using his VA benefit"
+      }
+    ],
+    "fields": {
+      "down_payment": 0,
+      "down_payment_pct": 0,
+      "fico": 690,
+      "first_time_buyer": true,
+      "loan_amount": 380000,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "va",
+      "property_type": "sfr_detached",
+      "purchase_price": 380000,
+      "purpose": "purchase",
+      "term_years": 30,
+      "va_eligible": true,
+      "va_first_use": true
+    },
+    "notes": "Credit is given approximately as \"around 690,\" which sits just under the 700 band edge \u2014 a small swing either way could move pricing materially; the loan amount equals the purchase price by inference from zero down and does not account for a financed VA funding fee."
+  },
+  "acca41891d6bea34bd0cc371902d1dcf45663dbbf645f13d4d4e209d5a35fe8f": {
+    "assumptions": [
+      {
+        "assumed_value": "sfr_detached",
+        "field": "property_type",
+        "reason": "Text says 'townhome', which does not establish whether the unit is a condo-project (condo LLPA) or a fee-simple attached/PUD dwelling; chose the non-condo category as the more common case, but this is an unresolved ambiguity worth 0.750 points in pricing and should be confirmed with the borrower or the project docs."
+      },
+      {
+        "assumed_value": 30,
+        "field": "lock_days",
+        "reason": "Borrower said 'no lock yet' so no lock period was stated; used the engine default of 30 days to produce a quote."
+      }
+    ],
+    "confidence": 0.72,
+    "evidence": [
+      {
+        "field": "purchase_price",
+        "phrase": "380k townhome"
+      },
+      {
+        "field": "purpose",
+        "phrase": "lookin at a 380k townhome"
+      },
+      {
+        "field": "occupancy",
+        "phrase": "pri res"
+      },
+      {
+        "field": "fico",
+        "phrase": "credit like 705"
+      },
+      {
+        "field": "program",
+        "phrase": "fha"
+      },
+      {
+        "field": "down_payment_pct",
+        "phrase": "3.5% dwn"
+      },
+      {
+        "field": "term_years",
+        "phrase": "30yr"
+      }
+    ],
+    "fields": {
+      "down_payment_pct": 3.5,
+      "fico": 705,
+      "lock_days": 30,
+      "occupancy": "primary",
+      "program": "fha",
+      "property_type": "sfr_detached",
+      "purchase_price": 380000,
+      "purpose": "purchase",
+      "term_years": 30
+    },
+    "notes": "FICO is approximate ('credit like 705') and sits just above the 700 band edge and ~15 points below 720, so a small correction either way could move the price materially; property type ('townhome') is condo-vs-non-condo ambiguous and was assumed, not stated."
+  }
+}

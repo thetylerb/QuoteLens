@@ -109,6 +109,50 @@ class TestFallbackParser:
         assert result.notes != ""
 
 
+class TestMoneyForms:
+    """The fallback's money regex has to recognize every common written form
+    of a dollar figure, not just comma-grouped digits — see the $450,000
+    Sarah/Austin bug this class was written to cover."""
+
+    @pytest.mark.parametrize("phrase", ["$450,000", "$450000", "$450k", "450k"])
+    def test_common_price_forms_resolve_to_450000(self, phrase):
+        result = extraction.extract(
+            f"Sarah is buying a {phrase} single family home in Austin, TX."
+        )
+        assert result.fields["purchase_price"] == pytest.approx(450_000)
+
+    def test_million_suffix_resolves_correctly(self):
+        result = extraction.extract(
+            "Sarah is buying a $1.2M single family home in Austin, TX."
+        )
+        assert result.fields["purchase_price"] == pytest.approx(1_200_000)
+
+    def test_loan_keyword_assigns_loan_amount_not_price(self):
+        result = extraction.extract(
+            "Client wants a $300,000 loan for a home purchase, credit 700, conventional, 30-year fixed, 30-day lock."
+        )
+        assert result.fields["loan_amount"] == pytest.approx(300_000)
+
+    def test_price_and_loan_both_stated_are_kept_distinct(self):
+        result = extraction.extract(
+            "Purchase price is $500k, loan amount $400k, credit 700, primary residence, "
+            "single family, conventional, 30-year fixed, 30-day lock."
+        )
+        assert result.fields["purchase_price"] == pytest.approx(500_000)
+        assert result.fields["loan_amount"] == pytest.approx(400_000)
+
+    def test_genuinely_ambiguous_figure_is_assumed_as_price(self):
+        # No "price"/"loan"/"home" anchor word anywhere near this figure —
+        # must still resolve (as purchase price) rather than return nothing.
+        result = extraction.extract(
+            "Sarah has $450,000 available, credit 700, primary residence, "
+            "single family, conventional, 30-year fixed, 30-day lock."
+        )
+        assert result.fields["purchase_price"] == pytest.approx(450_000)
+        assert any(a.field == "purchase_price" for a in result.assumptions)
+        assert result.notes != ""
+
+
 class TestProvisionalFlag:
     def test_low_confidence_sets_provisional(self):
         sparse = "credit's around 725"
