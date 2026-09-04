@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuoteLens Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#f4f6fa; --surface:#ffffff; --raised:#eef1f7; --line:#d6dce8;
+  --ink:#101725; --ink-2:#3d4759; --muted:#6b7689;
+  --accent:#1f63c4; --accent-soft:rgba(31,99,196,.10);
+  --cost:#b4462a; --credit:#1b7d52;
+  --critical:#b3312f; --warning:#96650b; --good:#1a7a2e;
+  --chip:#e6eaf3;
+  --shadow:0 1px 2px rgba(16,23,37,.06), 0 8px 24px rgba(16,23,37,.06);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0e131c; --surface:#171f2d; --raised:#1e2839; --line:#2b3446;
+    --ink:#e7eaf1; --ink-2:#b9c2d2; --muted:#8792a8;
+    --accent:#5a9bf2; --accent-soft:rgba(90,155,242,.14);
+    --cost:#e07a52; --credit:#3faa78;
+    --critical:#e06a68; --warning:#e8a53a; --good:#4bbf63;
+    --chip:#232e40;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0e131c; --surface:#171f2d; --raised:#1e2839; --line:#2b3446;
+  --ink:#e7eaf1; --ink-2:#b9c2d2; --muted:#8792a8;
+  --accent:#5a9bf2; --accent-soft:rgba(90,155,242,.14);
+  --cost:#e07a52; --credit:#3faa78;
+  --critical:#e06a68; --warning:#e8a53a; --good:#4bbf63;
+  --chip:#232e40;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.28);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:600; letter-spacing:-.01em}
+a{color:var(--accent)}
+button{font-family:inherit; font-size:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+
+/* ---------- chrome ---------- */
+header{
+  position:sticky; top:0; z-index:30;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.bar{max-width:1240px; margin:0 auto; padding:0 22px;
+     display:flex; align-items:center; gap:26px; height:56px}
+.brand{display:flex; align-items:baseline; gap:10px}
+.brand b{font-size:16px; font-weight:700; letter-spacing:-.02em}
+.brand span{font-size:12px; color:var(--muted)}
+nav{display:flex; gap:2px; margin-left:auto}
+nav button{
+  background:none; border:0; color:var(--muted); cursor:pointer;
+  padding:7px 12px; border-radius:6px; font-weight:500; font-size:13.5px;
+}
+nav button:hover{color:var(--ink-2); background:var(--raised)}
+nav button[aria-selected="true"]{background:var(--accent-soft); color:var(--accent)}
+.themebtn{background:none;border:1px solid var(--line);color:var(--muted);
+  cursor:pointer;padding:5px 9px;border-radius:6px;font-size:12px}
+
+main{max-width:1240px; margin:0 auto; padding:24px 22px 72px}
+.panel[hidden]{display:none!important}
+.lede{color:var(--muted); font-size:14px; max-width:68ch; margin:6px 0 22px}
+
+/* ---------- quote tab ---------- */
+.split{display:grid; grid-template-columns:300px minmax(0,1fr); gap:22px; align-items:start}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+
+.rail{background:var(--surface); border:1px solid var(--line); border-radius:10px;
+      padding:16px; box-shadow:var(--shadow); position:sticky; top:80px}
+.rail h3{font-size:12px; text-transform:uppercase; letter-spacing:.07em;
+         color:var(--muted); font-weight:600; margin-bottom:14px}
+.fld{display:flex; flex-direction:column; gap:5px; margin-bottom:13px}
+.fld label{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:8px}
+.fld label b{font-family:var(--mono); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums}
+.fld select, .fld input[type=number]{
+  background:var(--raised); border:1px solid var(--line); color:var(--ink);
+  border-radius:6px; padding:6px 8px; font-family:var(--mono); font-size:13px;
+}
+input[type=range]{width:100%; accent-color:var(--accent); margin:2px 0}
+
+.stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px}
+.stat{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:11px 13px}
+.stat .k{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+.stat .v{font-family:var(--mono); font-size:19px; font-variant-numeric:tabular-nums; margin-top:3px}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:10px;
+      box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden}
+.card > h2{font-size:13.5px; padding:13px 16px; border-bottom:1px solid var(--line);
+           display:flex; align-items:baseline; gap:10px}
+.card > h2 em{font-style:normal; font-size:12px; color:var(--muted); font-weight:400}
+.card .body{padding:14px 16px}
+.scroll{overflow-x:auto}
+
+table{border-collapse:collapse; width:100%; font-size:13px}
+th{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+   font-weight:600; text-align:right; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+th:first-child, td:first-child{text-align:left}
+td{padding:8px 12px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--raised)}
+tr.par{background:var(--accent-soft)}
+tr.par td{font-weight:600}
+.pays{color:var(--cost)} .credits{color:var(--credit)}
+
+/* waterfall */
+.wf{display:flex; flex-direction:column; gap:2px}
+.wf .r{display:grid; grid-template-columns:1fr 78px 82px; gap:10px; align-items:center;
+       padding:7px 0; border-bottom:1px solid var(--line)}
+.wf .r:last-child{border-bottom:0}
+.wf .nm{font-size:13px}
+.wf .src{font-size:11px; color:var(--muted); font-family:var(--mono); margin-top:2px;
+         overflow-wrap:anywhere}
+.wf .amt, .wf .run{font-family:var(--mono); font-size:13px; text-align:right; font-variant-numeric:tabular-nums}
+.wf .amt{color:var(--cost)}
+.wf .r.head .amt, .wf .r.foot .amt{color:var(--ink)}
+.wf .r.foot{border-top:2px solid var(--line); border-bottom:0; padding-top:10px; font-weight:600}
+
+/* chips + checks */
+.chip{display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:5px;
+      font-size:11.5px; font-weight:500; background:var(--chip); color:var(--ink-2); white-space:nowrap}
+.chip.ok{background:color-mix(in srgb, var(--good) 15%, transparent); color:var(--good)}
+.chip.no{background:color-mix(in srgb, var(--critical) 15%, transparent); color:var(--critical)}
+.chip.warn{background:color-mix(in srgb, var(--warning) 18%, transparent); color:var(--warning)}
+.chk{display:grid; grid-template-columns:26px 1fr; gap:9px; padding:7px 0; border-bottom:1px solid var(--line)}
+.chk:last-child{border-bottom:0}
+.chk .m{font-family:var(--mono); font-size:12px}
+.chk .d{font-size:13px; color:var(--ink-2)}
+.pass{color:var(--good)} .fail{color:var(--critical)}
+
+/* scenarios */
+.scn{border:1px solid var(--line); border-radius:9px; background:var(--surface);
+     margin-bottom:11px; overflow:hidden}
+.scn > button{width:100%; text-align:left; background:none; border:0; cursor:pointer;
+              padding:13px 15px; color:var(--ink); display:flex; gap:12px; align-items:flex-start}
+.scn > button:hover{background:var(--raised)}
+.scn .ix{font-family:var(--mono); font-size:12px; color:var(--muted); padding-top:2px}
+.scn .tx{flex:1; font-size:13.5px; line-height:1.45}
+.scn .det{border-top:1px solid var(--line); padding:14px 15px; background:var(--raised)}
+.scn .det[hidden]{display:none}
+.kv{display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13px}
+.kv dt{color:var(--muted); font-family:var(--mono); font-size:12px}
+.kv dd{margin:0; font-family:var(--mono); font-size:12.5px}
+.kv dd .why{font-family:var(--sans); color:var(--muted); font-size:12px; display:block; margin-top:1px}
+.sub{font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+     font-weight:600; margin:14px 0 7px}
+.sub:first-child{margin-top:0}
+
+/* rules grids */
+.grid-note{font-size:12.5px; color:var(--muted); margin:0 0 12px}
+td.hot{background:color-mix(in srgb, var(--cost) 16%, transparent); font-weight:600}
+table.mx td, table.mx th{padding:6px 9px; font-size:12px}
+table.mx td{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+/* tests */
+.tgrp{margin-bottom:18px}
+.tgrp h3{font-size:13px; margin-bottom:7px}
+.tlist{display:flex; flex-direction:column; gap:1px}
+.t{display:grid; grid-template-columns:20px 1fr; gap:9px; padding:5px 0;
+   font-size:12.5px; border-bottom:1px solid var(--line)}
+.t:last-child{border-bottom:0}
+.t .c{color:var(--good); font-family:var(--mono); font-size:11px}
+.t code{font-family:var(--mono); font-size:12px; color:var(--ink-2)}
+
+/* log */
+.entry{border-left:3px solid var(--line); padding:0 0 22px 18px; position:relative}
+.entry:last-child{padding-bottom:0}
+.entry h3{font-size:15px; margin-bottom:5px}
+.entry .meta{font-size:11.5px; color:var(--muted); font-family:var(--mono); margin-bottom:9px}
+.entry p{margin:0 0 9px; font-size:14px; color:var(--ink-2); max-width:72ch}
+.entry.caught{border-left-color:var(--warning)}
+.entry.design{border-left-color:var(--accent)}
+.quote-blk{border-left:2px solid var(--line); padding-left:13px; margin:10px 0;
+           font-family:var(--mono); font-size:12px; color:var(--muted); white-space:pre-wrap}
+
+footer{max-width:1240px; margin:0 auto; padding:26px 22px 40px; border-top:1px solid var(--line);
+        color:var(--muted); font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand"><b>QuoteLens</b><span>mortgage pricing engine</span></div>
+    <nav id="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-p="quote">Quote</button>
+      <button role="tab" aria-selected="false" data-p="scen">Scenarios</button>
+      <button role="tab" aria-selected="false" data-p="rules">Rules</button>
+      <button role="tab" aria-selected="false" data-p="tests">Tests</button>
+      <button role="tab" aria-selected="false" data-p="log">Build log</button>
+    </nav>
+    <button class="themebtn" id="theme" title="Toggle theme">◑</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ================= QUOTE ================= -->
+<section class="panel" id="p-quote">
+  <h1 style="font-size:19px">Price a scenario</h1>
+  <p class="lede">Every adjustment below traces to a named cell in a published agency
+  grid. Change any input and watch the waterfall recompute — the grids come straight out
+  of <span class="num">engine/config.py</span>, so nothing here is hardcoded to a demo.</p>
+
+  <div class="split">
+    <aside class="rail">
+      <h3>Scenario</h3>
+      <div class="fld"><label for="i-txn">Transaction</label>
+        <select id="i-txn">
+          <option value="purchase">Purchase</option>
+          <option value="limited_cash_out">Rate/term refi</option>
+          <option value="cash_out">Cash-out refi</option>
+        </select></div>
+      <div class="fld"><label for="i-price">Property value <b id="v-price"></b></label>
+        <input type="range" id="i-price" min="150000" max="1200000" step="5000" value="500000"></div>
+      <div class="fld"><label for="i-down">Down payment <b id="v-down"></b></label>
+        <input type="range" id="i-down" min="0" max="40" step="0.5" value="20"></div>
+      <div class="fld"><label for="i-fico">Credit score <b id="v-fico"></b></label>
+        <input type="range" id="i-fico" min="600" max="820" step="1" value="745"></div>
+      <div class="fld"><label for="i-occ">Occupancy</label>
+        <select id="i-occ">
+          <option value="primary">Primary residence</option>
+          <option value="second_home">Second home</option>
+          <option value="investment">Investment</option>
+        </select></div>
+      <div class="fld"><label for="i-prop">Property type</label>
+        <select id="i-prop">
+          <option value="sfr_detached">Single family</option>
+          <option value="condo">Condo</option>
+          <option value="manufactured">Manufactured</option>
+        </select></div>
+      <div class="fld"><label for="i-units">Units</label>
+        <select id="i-units"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div class="fld"><label for="i-arm">Product</label>
+        <select id="i-arm"><option value="0">30-year fixed</option><option value="1">ARM</option></select></div>
+    </aside>
+
+    <div>
+      <div class="stat-row">
+        <div class="stat"><div class="k">Loan amount</div><div class="v" id="s-loan"></div></div>
+        <div class="stat"><div class="k">LTV</div><div class="v" id="s-ltv"></div></div>
+        <div class="stat"><div class="k">Total LLPA</div><div class="v" id="s-llpa"></div></div>
+        <div class="stat"><div class="k">Eligibility</div><div class="v" id="s-elig" style="font-size:14px"></div></div>
+      </div>
+
+      <div class="card">
+        <h2>Eligibility <em>conventional, agency limits + lender overlay</em></h2>
+        <div class="body" id="checks"></div>
+      </div>
+
+      <div class="card">
+        <h2>Rate stack <em>par row highlighted · price per 100 of loan amount</em></h2>
+        <div class="scroll"><table id="stack">
+          <thead><tr><th>Rate</th><th>Price</th><th>Points / credit</th><th>Monthly P&amp;I</th><th>Monthly MI</th><th>Total payment</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+
+      <div class="card">
+        <h2>Why this price <em id="wf-rate"></em></h2>
+        <div class="body"><div class="wf" id="wf"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCENARIOS ================= -->
+<section class="panel" id="p-scen" hidden>
+  <h1 style="font-size:19px">Test scenarios</h1>
+  <p class="lede">The eight cases the engine is exercised against, written the way a loan
+  officer actually types. Each one shows what the model <strong>read</strong> separately
+  from what it <strong>assumed</strong> — because an assumed value that looks like a stated
+  one is how a quote ends up wrong in a way nobody catches.</p>
+  <div id="scenarios"></div>
+</section>
+
+<!-- ================= RULES ================= -->
+<section class="panel" id="p-rules" hidden>
+  <h1 style="font-size:19px">The rules</h1>
+  <p class="lede">No model touches these. Every value is config, sourced and dated, and
+  changing one reprices the portfolio without a code change.</p>
+  <div id="rules"></div>
+</section>
+
+<!-- ================= TESTS ================= -->
+<section class="panel" id="p-tests" hidden>
+  <h1 style="font-size:19px">Tests</h1>
+  <p class="lede">The rules make the decisions, so the rules are what gets tested.
+  Extraction is fuzzy by nature and gets measured with confidence scores instead. The
+  test file is written to read as a specification of the pricing rules.</p>
+  <div id="tests"></div>
+</section>
+
+<!-- ================= LOG ================= -->
+<section class="panel" id="p-log" hidden>
+  <h1 style="font-size:19px">Build log</h1>
+  <p class="lede">Decisions I made, and bugs the first build shipped that I caught by
+  reading output rather than by a test failing. Kept because the failures are more
+  informative than the successes.</p>
+  <div id="log"></div>
+</section>
+
+</main>
+
+<footer>
+  <div id="parity" style="margin-bottom:8px"></div>
+  Generated from the engine at <span class="num" id="gen-when"></span> ·
+  pricing grids read directly from <span class="num">engine/config.py</span> ·
+  <a href="https://github.com/thetylerb/QuoteLens">github.com/thetylerb/QuoteLens</a><br>
+  Base rate sheet is illustrative, calibrated to the Freddie Mac PMMS survey average.
+  LLPAs, loan limits, MI factors and funding fees are the published tables with effective dates.
+</footer>
+
+<script>
+const D = /*__DATA__*/;
+
+/* ---------- pricing, mirroring engine/pricing.py ---------- */
+const money = n => (n<0?"-":"") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
+const pct = (n,d=2) => n.toFixed(d) + "%";
+
+function ficoBand(f){ for(const [lab,lo,hi] of D.fico_bands) if(f>=lo&&f<=hi) return lab; return D.fico_bands.at(-1)[0]; }
+// exclusive-upper: 80.000 lands in 75-80, 80.001 in 80-85
+function ltvBand(l){ for(const [lab,hi] of D.ltv_bands){ if(hi===null) return lab; if(l<=hi+1e-9) return lab; } return ">95"; }
+function pmiFactor(ltv,f){
+  if(ltv<=80) return 0;
+  let band=null; for(const [lab,lo,hi] of D.pmi_ltv_bands) if(ltv>lo&&ltv<=hi) band=lab;
+  if(!band) band = D.pmi_ltv_bands.at(-1)[0];
+  let col = D.pmi_fico_cols.at(-1);
+  if(f>=760) col="760+"; else if(f>=740) col="740-759"; else if(f>=720) col="720-739";
+  else if(f>=700) col="700-719"; else if(f>=680) col="680-699"; else if(f>=660) col="660-679";
+  else if(f>=640) col="640-659";
+  return (D.pmi[band]||{})[col] || 0;
+}
+const pi = (P,r,n=360) => { const m=r/12; return m===0?P/n:P*m/(1-Math.pow(1+m,-n)); };
+
+function priceIt(q){
+  const value=q.price, loan=Math.round(value*(1-q.down/100));
+  const ltv = loan/value*100;
+  const fb=ficoBand(q.fico), lb=ltvBand(ltv);
+  const adj=[];
+  const grid = D.llpa[q.txn]||D.llpa.purchase;
+  const base = (grid[fb]||{})[lb] || 0;
+  adj.push({name:`Base LLPA — FICO ${fb} × LTV ${lb}`, amt:base,
+            src:`${D.llpa_source}, ${q.txn.replace(/_/g," ")} grid`});
+  const A=D.adders;
+  const add=(key,label)=>{ const v=(A[key]||{})[lb]||0; if(v) adj.push({name:label,amt:v,src:`${D.llpa_source}, adder: ${key}`}); };
+  if(q.occ==="investment") add("investment_property","Investment property");
+  if(q.occ==="second_home") add("second_home","Second home");
+  if(q.prop==="condo") add("condo","Condominium");
+  if(q.prop==="manufactured"){ adj.push({name:"Manufactured home", amt:D.manufactured_flat,
+      src:`${D.llpa_source}, flat adder across all bands`}); }
+  if(q.units>=2) add("two_to_four_unit",`${q.units}-unit property`);
+  if(q.arm) add("arm","Adjustable rate");
+  const lim = D.conforming[q.units]||D.conforming[1];
+  if(loan>lim.baseline && loan<=lim.ceiling) add(q.arm?"high_balance_arm":"high_balance_frm","High-balance");
+  const total = adj.reduce((s,a)=>s+a.amt,0);
+
+  const mi = pmiFactor(ltv,q.fico)*loan/12;
+  const stack = D.rates.map((r,i)=>{
+    const bp=D.base_price[i], fp=+(bp-total).toFixed(3);
+    const cost=(100-fp)/100*loan, p=pi(loan,r/100);
+    return {rate:r, base:bp, price:fp, cost, pi:p, mi, total:p+mi};
+  });
+  let par=stack[0]; for(const s of stack) if(Math.abs(s.price-100)<Math.abs(par.price-100)) par=s;
+
+  // eligibility, mirroring engine/eligibility.py for the conventional path
+  const maxLtv = D.max_ltv[`${q.occ}|${q.units}|${q.txn}`] ?? D.max_ltv[`${q.occ}|1|${q.txn}`] ?? 97;
+  const checks=[
+    {n:"loan_limit", ok:loan<=lim.ceiling,
+     d:loan<=lim.ceiling ? `Within the ${money(lim.ceiling)} conforming ceiling`
+                         : `${money(loan)} exceeds the ${money(lim.ceiling)} conforming ceiling`},
+    {n:"max_ltv", ok:ltv<=maxLtv+1e-9,
+     d:`LTV ${pct(ltv)} against a ${pct(maxLtv,1)} maximum`},
+    {n:"min_fico_overlay", ok:q.fico>=D.overlays.min_fico_conventional,
+     d:`FICO ${q.fico} against a lender overlay minimum of ${D.overlays.min_fico_conventional}`},
+  ];
+  return {loan,ltv,total,adj,stack,par,checks,eligible:checks.every(c=>c.ok)};
+}
+
+/* ---------- render ---------- */
+const $=s=>document.querySelector(s);
+function readInputs(){
+  return {txn:$("#i-txn").value, price:+$("#i-price").value, down:+$("#i-down").value,
+          fico:+$("#i-fico").value, occ:$("#i-occ").value, prop:$("#i-prop").value,
+          units:+$("#i-units").value, arm:$("#i-arm").value==="1"};
+}
+function draw(){
+  const q=readInputs(), r=priceIt(q);
+  $("#v-price").textContent=money(q.price);
+  $("#v-down").textContent=q.down.toFixed(1)+"%";
+  $("#v-fico").textContent=q.fico;
+  $("#s-loan").textContent=money(r.loan);
+  $("#s-ltv").textContent=pct(r.ltv);
+  $("#s-llpa").textContent=r.total.toFixed(3);
+  $("#s-elig").innerHTML = r.eligible
+    ? '<span class="chip ok">Eligible</span>' : '<span class="chip no">Ineligible</span>';
+
+  $("#checks").innerHTML = r.checks.map(c=>`
+    <div class="chk"><div class="m ${c.ok?'pass':'fail'}">${c.ok?'PASS':'FAIL'}</div>
+    <div><div class="num" style="font-size:12px;color:var(--muted)">${c.n}</div>
+    <div class="d">${c.d}</div></div></div>`).join("");
+
+  $("#stack tbody").innerHTML = r.stack.map(s=>`
+    <tr class="${s===r.par?'par':''}">
+      <td class="num">${s.rate.toFixed(3)}%</td>
+      <td class="num">${s.price.toFixed(3)}</td>
+      <td class="num ${s.cost>0?'pays':'credits'}">${s.cost>0?money(s.cost)+" pts":money(-s.cost)+" credit"}</td>
+      <td class="num">${money(s.pi)}</td>
+      <td class="num">${s.mi?money(s.mi):"—"}</td>
+      <td class="num">${money(s.total)}</td></tr>`).join("");
+
+  $("#wf-rate").textContent=`at the par row, ${r.par.rate.toFixed(3)}%`;
+  let run=r.par.base;
+  const rows=[`<div class="r head"><div class="nm">Base price</div><div class="amt"></div>
+               <div class="run num">${r.par.base.toFixed(3)}</div></div>`];
+  for(const a of r.adj){ run-=a.amt;
+    rows.push(`<div class="r"><div><div class="nm">${a.name}</div><div class="src">${a.src}</div></div>
+      <div class="amt num">− ${a.amt.toFixed(3)}</div>
+      <div class="run num">${run.toFixed(3)}</div></div>`); }
+  const c=r.par.cost;
+  rows.push(`<div class="r foot"><div class="nm">Final price → borrower
+      ${c>0?`<span class="pays">pays ${money(c)}</span>`:`<span class="credits">receives ${money(-c)}</span>`}</div>
+      <div class="amt"></div><div class="run num">${r.par.price.toFixed(3)}</div></div>`);
+  $("#wf").innerHTML=rows.join("");
+}
+
+/* ---------- scenarios ---------- */
+$("#scenarios").innerHTML = D.scenarios.map((s,i)=>`
+  <div class="scn">
+    <button data-i="${i}"><span class="ix">${String(i+1).padStart(2,"0")}</span>
+      <span class="tx">${s.text}</span>
+      <span class="chip ${s.eligible===false?'no':(s.quoted?'ok':'warn')}">${s.status}</span></button>
+    <div class="det" hidden>
+      ${s.stated.length?`<div class="sub">Stated — read from the text</div>
+        <dl class="kv">${s.stated.map(f=>`<dt>${f.k}</dt><dd>${f.v}${f.ev?`<span class="why">from “${f.ev}”</span>`:""}</dd>`).join("")}</dl>`:""}
+      ${s.assumed.length?`<div class="sub">Assumed — filled in, not stated</div>
+        <dl class="kv">${s.assumed.map(f=>`<dt>${f.k}</dt><dd>${f.v}<span class="why">${f.why}</span></dd>`).join("")}</dl>`:""}
+      <div class="sub">Outcome</div>
+      <div style="font-size:13.5px;color:var(--ink-2);max-width:70ch">${s.outcome}</div>
+    </div>
+  </div>`).join("");
+$("#scenarios").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-i]"); if(!b) return;
+  const d=b.nextElementSibling; d.hidden=!d.hidden;
+});
+
+/* ---------- rules ---------- */
+(function(){
+  const mx=(title,note,grid)=>{
+    const cols=D.ltv_bands.map(b=>b[0]);
+    return `<div class="card"><h2>${title}</h2><div class="body">
+      <p class="grid-note">${note}</p><div class="scroll"><table class="mx">
+      <thead><tr><th>FICO</th>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>
+      ${Object.entries(grid).map(([f,row])=>`<tr><td>${f}</td>${cols.map(c=>{
+        const v=row[c]??0; const hot=(c==="75-80"&&v>0);
+        return `<td class="${hot?'hot':''}">${v.toFixed(3)}</td>`;}).join("")}</tr>`).join("")}
+      </tbody></table></div></div></div>`;
+  };
+  $("#rules").innerHTML =
+    mx("Purchase LLPA grid", `${D.llpa_source}. Highlighted column is the 75–80 band — the
+       <em>worst</em> band in the matrix, not the highest LTV. Past 80% the borrower carries
+       mortgage insurance, so the agency's own exposure drops and the fee falls. An engine
+       that assumes fees rise with LTV is wrong in the most common band in the book.`, D.llpa.purchase)
+    + mx("Cash-out refinance LLPA grid", "Cash-out caps at 80% LTV, so the grid stops there.", D.llpa.cash_out)
+    + `<div class="card"><h2>Caps and limits <em>eligibility only, never priced</em></h2><div class="body">
+       <div class="scroll"><table><thead><tr><th>Limit</th><th>Value</th><th>Source</th></tr></thead><tbody>
+       ${D.limits.map(l=>`<tr><td>${l.k}</td><td class="num">${l.v}</td><td style="text-align:right;font-size:12px;color:var(--muted)">${l.s}</td></tr>`).join("")}
+       </tbody></table></div>
+       <p class="grid-note" style="margin-top:12px">FHFA deleted every DTI-based price adjustment
+       effective May 2023. DTI is a pure eligibility gate here — pass, fail or refer — and never
+       a price delta. That absence is deliberate, not an omission.</p></div></div>`;
+})();
+
+/* ---------- tests ---------- */
+$("#tests").innerHTML = D.tests.map(g=>`
+  <div class="card"><h2>${g.file} <em>${g.items.length} tests</em></h2><div class="body">
+    <div class="tlist">${g.items.map(t=>`<div class="t"><div class="c">✓</div>
+      <div><code>${t.name}</code>${t.doc?`<div style="color:var(--muted);margin-top:2px">${t.doc}</div>`:""}</div></div>`).join("")}</div>
+  </div></div>`).join("");
+
+/* ---------- build log ---------- */
+$("#log").innerHTML = `<div class="card"><div class="body">` + D.log.map(e=>`
+  <div class="entry ${e.kind}">
+    <h3>${e.title}</h3>
+    <div class="meta">${e.kind==="caught"?"BUG CAUGHT":"DESIGN DECISION"} · ${e.where}</div>
+    ${e.body.map(p=>`<p>${p}</p>`).join("")}
+    ${e.quote?`<div class="quote-blk">${e.quote}</div>`:""}
+  </div>`).join("") + `</div></div>`;
+
+/* ---------- parity: JS vs the Python engine ---------- */
+(function(){
+  let pass=0, fail=[];
+  for(const c of D.parity){
+    const r=priceIt(c.in);
+    const okL=Math.abs(r.total-c.expect.llpa)<1e-6;
+    const okP=Math.abs(r.par.price-c.expect.par_price)<1e-3;
+    if(okL&&okP) pass++; else fail.push(c.label);
+  }
+  const el=$("#parity");
+  el.innerHTML = fail.length
+    ? `<span class="chip no">Parity ${pass}/${D.parity.length}</span> diverged: ${fail.join(", ")}`
+    : `<span class="chip ok">Parity ${pass}/${D.parity.length}</span> This page recomputes pricing in the
+       browser. Every case above was also priced by the Python engine at build time, and the two agree
+       to three decimals — so the page can't quietly drift from the engine it documents.`;
+})();
+
+/* ---------- chrome ---------- */
+$("#tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-p]"); if(!b) return;
+  for(const t of document.querySelectorAll("#tabs button")) t.setAttribute("aria-selected", t===b);
+  for(const p of document.querySelectorAll(".panel")) p.hidden = p.id!=="p-"+b.dataset.p;
+  window.scrollTo(0,0);
+});
+$("#theme").addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  const sysDark=matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", cur ? (cur==="dark"?"light":"dark") : (sysDark?"light":"dark"));
+});
+for(const el of document.querySelectorAll(".rail input, .rail select")) el.addEventListener("input", draw);
+$("#gen-when").textContent = D.generated;
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuoteLens Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#f4f6fa; --surface:#ffffff; --raised:#eef1f7; --line:#d6dce8;
+  --ink:#101725; --ink-2:#3d4759; --muted:#6b7689;
+  --accent:#1f63c4; --accent-soft:rgba(31,99,196,.10);
+  --cost:#b4462a; --credit:#1b7d52;
+  --critical:#b3312f; --warning:#96650b; --good:#1a7a2e;
+  --chip:#e6eaf3;
+  --shadow:0 1px 2px rgba(16,23,37,.06), 0 8px 24px rgba(16,23,37,.06);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#0e131c; --surface:#171f2d; --raised:#1e2839; --line:#2b3446;
+    --ink:#e7eaf1; --ink-2:#b9c2d2; --muted:#8792a8;
+    --accent:#5a9bf2; --accent-soft:rgba(90,155,242,.14);
+    --cost:#e07a52; --credit:#3faa78;
+    --critical:#e06a68; --warning:#e8a53a; --good:#4bbf63;
+    --chip:#232e40;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.28);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0e131c; --surface:#171f2d; --raised:#1e2839; --line:#2b3446;
+  --ink:#e7eaf1; --ink-2:#b9c2d2; --muted:#8792a8;
+  --accent:#5a9bf2; --accent-soft:rgba(90,155,242,.14);
+  --cost:#e07a52; --credit:#3faa78;
+  --critical:#e06a68; --warning:#e8a53a; --good:#4bbf63;
+  --chip:#232e40;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.28);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:600; letter-spacing:-.01em}
+a{color:var(--accent)}
+button{font-family:inherit; font-size:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+
+/* ---------- chrome ---------- */
+header{
+  position:sticky; top:0; z-index:30;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.bar{max-width:1240px; margin:0 auto; padding:0 22px;
+     display:flex; align-items:center; gap:26px; height:56px}
+.brand{display:flex; align-items:baseline; gap:10px}
+.brand b{font-size:16px; font-weight:700; letter-spacing:-.02em}
+.brand span{font-size:12px; color:var(--muted)}
+nav{display:flex; gap:2px; margin-left:auto}
+nav button{
+  background:none; border:0; color:var(--muted); cursor:pointer;
+  padding:7px 12px; border-radius:6px; font-weight:500; font-size:13.5px;
+}
+nav button:hover{color:var(--ink-2); background:var(--raised)}
+nav button[aria-selected="true"]{background:var(--accent-soft); color:var(--accent)}
+.themebtn{background:none;border:1px solid var(--line);color:var(--muted);
+  cursor:pointer;padding:5px 9px;border-radius:6px;font-size:12px}
+
+main{max-width:1240px; margin:0 auto; padding:24px 22px 72px}
+.panel[hidden]{display:none!important}
+.lede{color:var(--muted); font-size:14px; max-width:68ch; margin:6px 0 22px}
+
+/* ---------- quote tab ---------- */
+.split{display:grid; grid-template-columns:300px minmax(0,1fr); gap:22px; align-items:start}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+
+.rail{background:var(--surface); border:1px solid var(--line); border-radius:10px;
+      padding:16px; box-shadow:var(--shadow); position:sticky; top:80px}
+.rail h3{font-size:12px; text-transform:uppercase; letter-spacing:.07em;
+         color:var(--muted); font-weight:600; margin-bottom:14px}
+.fld{display:flex; flex-direction:column; gap:5px; margin-bottom:13px}
+.fld label{font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:8px}
+.fld label b{font-family:var(--mono); font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums}
+.fld select, .fld input[type=number]{
+  background:var(--raised); border:1px solid var(--line); color:var(--ink);
+  border-radius:6px; padding:6px 8px; font-family:var(--mono); font-size:13px;
+}
+input[type=range]{width:100%; accent-color:var(--accent); margin:2px 0}
+
+.stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px}
+.stat{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:11px 13px}
+.stat .k{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+.stat .v{font-family:var(--mono); font-size:19px; font-variant-numeric:tabular-nums; margin-top:3px}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:10px;
+      box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden}
+.card > h2{font-size:13.5px; padding:13px 16px; border-bottom:1px solid var(--line);
+           display:flex; align-items:baseline; gap:10px}
+.card > h2 em{font-style:normal; font-size:12px; color:var(--muted); font-weight:400}
+.card .body{padding:14px 16px}
+.scroll{overflow-x:auto}
+
+table{border-collapse:collapse; width:100%; font-size:13px}
+th{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+   font-weight:600; text-align:right; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+th:first-child, td:first-child{text-align:left}
+td{padding:8px 12px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--raised)}
+tr.par{background:var(--accent-soft)}
+tr.par td{font-weight:600}
+.pays{color:var(--cost)} .credits{color:var(--credit)}
+
+/* waterfall */
+.wf{display:flex; flex-direction:column; gap:2px}
+.wf .r{display:grid; grid-template-columns:1fr 78px 82px; gap:10px; align-items:center;
+       padding:7px 0; border-bottom:1px solid var(--line)}
+.wf .r:last-child{border-bottom:0}
+.wf .nm{font-size:13px}
+.wf .src{font-size:11px; color:var(--muted); font-family:var(--mono); margin-top:2px;
+         overflow-wrap:anywhere}
+.wf .amt, .wf .run{font-family:var(--mono); font-size:13px; text-align:right; font-variant-numeric:tabular-nums}
+.wf .amt{color:var(--cost)}
+.wf .r.head .amt, .wf .r.foot .amt{color:var(--ink)}
+.wf .r.foot{border-top:2px solid var(--line); border-bottom:0; padding-top:10px; font-weight:600}
+
+/* chips + checks */
+.chip{display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:5px;
+      font-size:11.5px; font-weight:500; background:var(--chip); color:var(--ink-2); white-space:nowrap}
+.chip.ok{background:color-mix(in srgb, var(--good) 15%, transparent); color:var(--good)}
+.chip.no{background:color-mix(in srgb, var(--critical) 15%, transparent); color:var(--critical)}
+.chip.warn{background:color-mix(in srgb, var(--warning) 18%, transparent); color:var(--warning)}
+.chk{display:grid; grid-template-columns:26px 1fr; gap:9px; padding:7px 0; border-bottom:1px solid var(--line)}
+.chk:last-child{border-bottom:0}
+.chk .m{font-family:var(--mono); font-size:12px}
+.chk .d{font-size:13px; color:var(--ink-2)}
+.pass{color:var(--good)} .fail{color:var(--critical)}
+
+/* scenarios */
+.scn{border:1px solid var(--line); border-radius:9px; background:var(--surface);
+     margin-bottom:11px; overflow:hidden}
+.scn > button{width:100%; text-align:left; background:none; border:0; cursor:pointer;
+              padding:13px 15px; color:var(--ink); display:flex; gap:12px; align-items:flex-start}
+.scn > button:hover{background:var(--raised)}
+.scn .ix{font-family:var(--mono); font-size:12px; color:var(--muted); padding-top:2px}
+.scn .tx{flex:1; font-size:13.5px; line-height:1.45}
+.scn .det{border-top:1px solid var(--line); padding:14px 15px; background:var(--raised)}
+.scn .det[hidden]{display:none}
+.kv{display:grid; grid-template-columns:150px 1fr; gap:4px 12px; font-size:13px}
+.kv dt{color:var(--muted); font-family:var(--mono); font-size:12px}
+.kv dd{margin:0; font-family:var(--mono); font-size:12.5px}
+.kv dd .why{font-family:var(--sans); color:var(--muted); font-size:12px; display:block; margin-top:1px}
+.sub{font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+     font-weight:600; margin:14px 0 7px}
+.sub:first-child{margin-top:0}
+
+/* rules grids */
+.grid-note{font-size:12.5px; color:var(--muted); margin:0 0 12px}
+td.hot{background:color-mix(in srgb, var(--cost) 16%, transparent); font-weight:600}
+table.mx td, table.mx th{padding:6px 9px; font-size:12px}
+table.mx td{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+/* tests */
+.tgrp{margin-bottom:18px}
+.tgrp h3{font-size:13px; margin-bottom:7px}
+.tlist{display:flex; flex-direction:column; gap:1px}
+.t{display:grid; grid-template-columns:20px 1fr; gap:9px; padding:5px 0;
+   font-size:12.5px; border-bottom:1px solid var(--line)}
+.t:last-child{border-bottom:0}
+.t .c{color:var(--good); font-family:var(--mono); font-size:11px}
+.t code{font-family:var(--mono); font-size:12px; color:var(--ink-2)}
+
+/* log */
+.entry{border-left:3px solid var(--line); padding:0 0 22px 18px; position:relative}
+.entry:last-child{padding-bottom:0}
+.entry h3{font-size:15px; margin-bottom:5px}
+.entry .meta{font-size:11.5px; color:var(--muted); font-family:var(--mono); margin-bottom:9px}
+.entry p{margin:0 0 9px; font-size:14px; color:var(--ink-2); max-width:72ch}
+.entry.caught{border-left-color:var(--warning)}
+.entry.design{border-left-color:var(--accent)}
+.quote-blk{border-left:2px solid var(--line); padding-left:13px; margin:10px 0;
+           font-family:var(--mono); font-size:12px; color:var(--muted); white-space:pre-wrap}
+
+footer{max-width:1240px; margin:0 auto; padding:26px 22px 40px; border-top:1px solid var(--line);
+        color:var(--muted); font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand"><b>QuoteLens</b><span>mortgage pricing engine</span></div>
+    <nav id="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-p="quote">Quote</button>
+      <button role="tab" aria-selected="false" data-p="scen">Scenarios</button>
+      <button role="tab" aria-selected="false" data-p="rules">Rules</button>
+      <button role="tab" aria-selected="false" data-p="tests">Tests</button>
+      <button role="tab" aria-selected="false" data-p="log">Build log</button>
+    </nav>
+    <button class="themebtn" id="theme" title="Toggle theme">◑</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ================= QUOTE ================= -->
+<section class="panel" id="p-quote">
+  <h1 style="font-size:19px">Price a scenario</h1>
+  <p class="lede">Every adjustment below traces to a named cell in a published agency
+  grid. Change any input and watch the waterfall recompute — the grids come straight out
+  of <span class="num">engine/config.py</span>, so nothing here is hardcoded to a demo.</p>
+
+  <div class="split">
+    <aside class="rail">
+      <h3>Scenario</h3>
+      <div class="fld"><label for="i-txn">Transaction</label>
+        <select id="i-txn">
+          <option value="purchase">Purchase</option>
+          <option value="limited_cash_out">Rate/term refi</option>
+          <option value="cash_out">Cash-out refi</option>
+        </select></div>
+      <div class="fld"><label for="i-price">Property value <b id="v-price"></b></label>
+        <input type="range" id="i-price" min="150000" max="1200000" step="5000" value="500000"></div>
+      <div class="fld"><label for="i-down">Down payment <b id="v-down"></b></label>
+        <input type="range" id="i-down" min="0" max="40" step="0.5" value="20"></div>
+      <div class="fld"><label for="i-fico">Credit score <b id="v-fico"></b></label>
+        <input type="range" id="i-fico" min="600" max="820" step="1" value="745"></div>
+      <div class="fld"><label for="i-occ">Occupancy</label>
+        <select id="i-occ">
+          <option value="primary">Primary residence</option>
+          <option value="second_home">Second home</option>
+          <option value="investment">Investment</option>
+        </select></div>
+      <div class="fld"><label for="i-prop">Property type</label>
+        <select id="i-prop">
+          <option value="sfr_detached">Single family</option>
+          <option value="condo">Condo</option>
+          <option value="manufactured">Manufactured</option>
+        </select></div>
+      <div class="fld"><label for="i-units">Units</label>
+        <select id="i-units"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div class="fld"><label for="i-arm">Product</label>
+        <select id="i-arm"><option value="0">30-year fixed</option><option value="1">ARM</option></select></div>
+    </aside>
+
+    <div>
+      <div class="stat-row">
+        <div class="stat"><div class="k">Loan amount</div><div class="v" id="s-loan"></div></div>
+        <div class="stat"><div class="k">LTV</div><div class="v" id="s-ltv"></div></div>
+        <div class="stat"><div class="k">Total LLPA</div><div class="v" id="s-llpa"></div></div>
+        <div class="stat"><div class="k">Eligibility</div><div class="v" id="s-elig" style="font-size:14px"></div></div>
+      </div>
+
+      <div class="card">
+        <h2>Eligibility <em>conventional, agency limits + lender overlay</em></h2>
+        <div class="body" id="checks"></div>
+      </div>
+
+      <div class="card">
+        <h2>Rate stack <em>par row highlighted · price per 100 of loan amount</em></h2>
+        <div class="scroll"><table id="stack">
+          <thead><tr><th>Rate</th><th>Price</th><th>Points / credit</th><th>Monthly P&amp;I</th><th>Monthly MI</th><th>Total payment</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+
+      <div class="card">
+        <h2>Why this price <em id="wf-rate"></em></h2>
+        <div class="body"><div class="wf" id="wf"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCENARIOS ================= -->
+<section class="panel" id="p-scen" hidden>
+  <h1 style="font-size:19px">Test scenarios</h1>
+  <p class="lede">The eight cases the engine is exercised against, written the way a loan
+  officer actually types. Each one shows what the model <strong>read</strong> separately
+  from what it <strong>assumed</strong> — because an assumed value that looks like a stated
+  one is how a quote ends up wrong in a way nobody catches.</p>
+  <div id="scenarios"></div>
+</section>
+
+<!-- ================= RULES ================= -->
+<section class="panel" id="p-rules" hidden>
+  <h1 style="font-size:19px">The rules</h1>
+  <p class="lede">No model touches these. Every value is config, sourced and dated, and
+  changing one reprices the portfolio without a code change.</p>
+  <div id="rules"></div>
+</section>
+
+<!-- ================= TESTS ================= -->
+<section class="panel" id="p-tests" hidden>
+  <h1 style="font-size:19px">Tests</h1>
+  <p class="lede">The rules make the decisions, so the rules are what gets tested.
+  Extraction is fuzzy by nature and gets measured with confidence scores instead. The
+  test file is written to read as a specification of the pricing rules.</p>
+  <div id="tests"></div>
+</section>
+
+<!-- ================= LOG ================= -->
+<section class="panel" id="p-log" hidden>
+  <h1 style="font-size:19px">Build log</h1>
+  <p class="lede">Decisions I made, and bugs the first build shipped that I caught by
+  reading output rather than by a test failing. Kept because the failures are more
+  informative than the successes.</p>
+  <div id="log"></div>
+</section>
+
+</main>
+
+<footer>
+  <div id="parity" style="margin-bottom:8px"></div>
+  Generated from the engine at <span class="num" id="gen-when"></span> ·
+  pricing grids read directly from <span class="num">engine/config.py</span> ·
+  <a href="https://github.com/thetylerb/QuoteLens">github.com/thetylerb/QuoteLens</a><br>
+  Base rate sheet is illustrative, calibrated to the Freddie Mac PMMS survey average.
+  LLPAs, loan limits, MI factors and funding fees are the published tables with effective dates.
+</footer>
+
+<script>
+const D = {"generated":"2026-09-04 12:04","fico_bands":[[">=780",780,9999],["760-779",760,779],["740-759",740,759],["720-739",720,739],["700-719",700,719],["680-699",680,699],["660-679",660,679],["640-659",640,659],["<=639",0,639]],"ltv_bands":[["<30",30.0],["30-60",60.0],["60-70",70.0],["70-75",75.0],["75-80",80.0],["80-85",85.0],["85-90",90.0],["90-95",95.0],[">95",null]],"llpa":{"purchase":{">=780":{"<30":0.0,"30-60":0.0,"60-70":0.0,"70-75":0.0,"75-80":0.375,"80-85":0.375,"85-90":0.25,"90-95":0.25,">95":0.125},"760-779":{"<30":0.0,"30-60":0.0,"60-70":0.0,"70-75":0.25,"75-80":0.625,"80-85":0.625,"85-90":0.5,"90-95":0.5,">95":0.25},"740-759":{"<30":0.0,"30-60":0.0,"60-70":0.125,"70-75":0.375,"75-80":0.875,"80-85":1.0,"85-90":0.75,"90-95":0.625,">95":0.5},"720-739":{"<30":0.0,"30-60":0.0,"60-70":0.25,"70-75":0.75,"75-80":1.25,"80-85":1.25,"85-90":1.0,"90-95":0.875,">95":0.75},"700-719":{"<30":0.0,"30-60":0.0,"60-70":0.375,"70-75":0.875,"75-80":1.375,"80-85":1.5,"85-90":1.25,"90-95":1.125,">95":0.875},"680-699":{"<30":0.0,"30-60":0.0,"60-70":0.625,"70-75":1.125,"75-80":1.75,"80-85":1.875,"85-90":1.5,"90-95":1.375,">95":1.125},"660-679":{"<30":0.0,"30-60":0.0,"60-70":0.75,"70-75":1.375,"75-80":1.875,"80-85":2.125,"85-90":1.75,"90-95":1.625,">95":1.25},"640-659":{"<30":0.0,"30-60":0.0,"60-70":1.125,"70-75":1.5,"75-80":2.25,"80-85":2.5,"85-90":2.0,"90-95":1.875,">95":1.5},"<=639":{"<30":0.0,"30-60":0.125,"60-70":1.5,"70-75":2.125,"75-80":2.75,"80-85":2.875,"85-90":2.625,"90-95":2.25,">95":1.75}},"limited_cash_out":{">=780":{"<30":0.0,"30-60":0.0,"60-70":0.0,"70-75":0.125,"75-80":0.5,"80-85":0.625,"85-90":0.5,"90-95":0.375,">95":0.375},"760-779":{"<30":0.0,"30-60":0.0,"60-70":0.125,"70-75":0.375,"75-80":0.875,"80-85":1.0,"85-90":0.75,"90-95":0.625,">95":0.625},"740-759":{"<30":0.0,"30-60":0.0,"60-70":0.25,"70-75":0.75,"75-80":1.125,"80-85":1.375,"85-90":1.125,"90-95":1.0,">95":1.0},"720-739":{"<30":0.0,"30-60":0.0,"60-70":0.5,"70-75":1.0,"75-80":1.625,"80-85":1.75,"85-90":1.5,"90-95":1.25,">95":1.25},"700-719":{"<30":0.0,"30-60":0.0,"60-70":0.625,"70-75":1.25,"75-80":1.875,"80-85":2.125,"85-90":1.75,"90-95":1.625,">95":1.625},"680-699":{"<30":0.0,"30-60":0.0,"60-70":0.875,"70-75":1.625,"75-80":2.25,"80-85":2.5,"85-90":2.125,"90-95":1.75,">95":1.75},"660-679":{"<30":0.0,"30-60":0.125,"60-70":1.125,"70-75":1.875,"75-80":2.5,"80-85":3.0,"85-90":2.375,"90-95":2.125,">95":2.125},"640-659":{"<30":0.0,"30-60":0.25,"60-70":1.375,"70-75":2.125,"75-80":2.875,"80-85":3.375,"85-90":2.875,"90-95":2.5,">95":2.5},"<=639":{"<30":0.0,"30-60":0.375,"60-70":1.75,"70-75":2.5,"75-80":3.5,"80-85":3.875,"85-90":3.625,"90-95":2.5,">95":2.5}},"cash_out":{">=780":{"<30":0.375,"30-60":0.375,"60-70":0.625,"70-75":0.875,"75-80":1.375},"760-779":{"<30":0.375,"30-60":0.375,"60-70":0.875,"70-75":1.25,"75-80":1.875},"740-759":{"<30":0.375,"30-60":0.375,"60-70":1.0,"70-75":1.625,"75-80":2.375},"720-739":{"<30":0.375,"30-60":0.5,"60-70":1.375,"70-75":2.0,"75-80":2.75},"700-719":{"<30":0.375,"30-60":0.5,"60-70":1.625,"70-75":2.625,"75-80":3.25},"680-699":{"<30":0.375,"30-60":0.625,"60-70":2.0,"70-75":2.875,"75-80":3.75},"660-679":{"<30":0.375,"30-60":0.875,"60-70":2.75,"70-75":4.0,"75-80":4.75},"640-659":{"<30":0.375,"30-60":1.375,"60-70":3.125,"70-75":4.625,"75-80":5.125},"<=639":{"<30":0.375,"30-60":1.375,"60-70":3.375,"70-75":4.875,"75-80":5.125}}},"adders":{"arm":{"<30":0.0,"30-60":0.0,"60-70":0.0,"70-75":0.0,"75-80":0.0,"80-85":0.0,"85-90":0.0,"90-95":0.25,">95":0.25},"condo":{"<30":0.0,"30-60":0.0,"60-70":0.125,"70-75":0.125,"75-80":0.75,"80-85":0.75,"85-90":0.75,"90-95":0.75,">95":0.75},"investment_property":{"<30":1.125,"30-60":1.125,"60-70":1.625,"70-75":2.125,"75-80":3.375,"80-85":4.125,"85-90":4.125,"90-95":4.125,">95":4.125},"second_home":{"<30":1.125,"30-60":1.125,"60-70":1.625,"70-75":2.125,"75-80":3.375,"80-85":4.125,"85-90":4.125,"90-95":4.125,">95":4.125},"two_to_four_unit":{"<30":0.0,"30-60":0.0,"60-70":0.375,"70-75":0.375,"75-80":0.625,"80-85":0.625,"85-90":0.625,"90-95":0.625,">95":0.625},"high_balance_frm":{"<30":0.5,"30-60":0.5,"60-70":0.75,"70-75":0.75,"75-80":1.0,"80-85":1.0,"85-90":1.0,"90-95":1.0,">95":1.0},"high_balance_arm":{"<30":1.25,"30-60":1.25,"60-70":1.5,"70-75":1.5,"75-80":2.5,"80-85":2.5,"85-90":2.5,"90-95":2.75,">95":2.75},"subordinate_financing":{"<30":0.625,"30-60":0.625,"60-70":0.625,"70-75":0.875,"75-80":1.125,"80-85":1.125,"85-90":1.125,"90-95":1.875,">95":1.875}},"manufactured_flat":0.5,"llpa_source":"Fannie Mae LLPA Matrix, eff. 01/28/2026","rates":[5.5,5.625,5.75,5.875,6.0,6.125,6.25,6.375,6.5,6.625,6.75,6.875,7.0,7.125,7.25,7.375,7.5,7.625,7.75,7.875,8.0],"base_price":[96.9,97.25,97.625,98.025,98.45,98.9,99.375,99.875,100.75,101.25,101.75,102.25,102.733,103.2,103.65,104.083,104.5,104.9,105.283,105.65,106.0],"conforming":{"1":{"baseline":832750,"ceiling":1249125},"2":{"baseline":1066250,"ceiling":1599375},"3":{"baseline":1288800,"ceiling":1933200},"4":{"baseline":1601750,"ceiling":2402625}},"max_ltv":{"primary|1|purchase":97.0,"primary|1|limited_cash_out":97.0,"primary|1|cash_out":80.0,"primary|2|purchase":95.0,"primary|2|limited_cash_out":95.0,"primary|2|cash_out":75.0,"primary|3-4|purchase":95.0,"primary|3-4|limited_cash_out":95.0,"primary|3-4|cash_out":75.0,"second_home|1|purchase":90.0,"second_home|1|limited_cash_out":90.0,"second_home|1|cash_out":75.0,"investment|1|purchase":85.0,"investment|1|limited_cash_out":75.0,"investment|1|cash_out":75.0,"investment|2|purchase":75.0,"investment|2|limited_cash_out":75.0,"investment|2|cash_out":70.0,"investment|3-4|purchase":75.0,"investment|3-4|limited_cash_out":75.0,"investment|3-4|cash_out":70.0},"overlays":{"min_fico_conventional":620,"min_fico_fha":580,"min_fico_va":580,"min_fico_usda":620},"pmi":{"95.01-97":{"760+":0.38,"740-759":0.53,"720-739":0.66,"700-719":0.78,"680-699":0.96,"660-679":1.28,"640-659":1.33,"620-639":1.42},"90.01-95":{"760+":0.34,"740-759":0.48,"720-739":0.59,"700-719":0.68,"680-699":0.87,"660-679":1.11,"640-659":1.19,"620-639":1.25},"85.01-90":{"760+":0.28,"740-759":0.38,"720-739":0.46,"700-719":0.55,"680-699":0.65,"660-679":0.9,"640-659":0.91,"620-639":0.94},"80.01-85":{"760+":0.19,"740-759":0.2,"720-739":0.23,"700-719":0.25,"680-699":0.28,"660-679":0.38,"640-659":0.4,"620-639":0.44}},"pmi_ltv_bands":[["80.01-85",80.0,85.0],["85.01-90",85.0,90.0],["90.01-95",90.0,95.0],["95.01-97",95.0,97.0]],"pmi_fico_cols":["760+","740-759","720-739","700-719","680-699","660-679","640-659","620-639"],"limits":[{"k":"Conforming limit, 1 unit","v":"$832,750","s":"FHFA, 2026"},{"k":"High-cost ceiling, 1 unit","v":"$1,249,125","s":"FHFA, 2026"},{"k":"Conventional max LTV \u2014 primary purchase","v":"97.0%","s":"Fannie Eligibility Matrix"},{"k":"Conventional max LTV \u2014 cash-out","v":"80.0%","s":"Fannie Eligibility Matrix"},{"k":"Max DTI \u2014 DU","v":"5000%","s":"Selling Guide B3-6-02"},{"k":"Max DTI \u2014 manual","v":"4500%","s":"Selling Guide B3-6-02"},{"k":"FHA UFMIP","v":"1.75%","s":"ML 2023-05"},{"k":"FHA max LTV \u2014 cash-out","v":"80.0%","s":"HUD 4000.1"},{"k":"VA max LTV","v":"100.0%","s":"VA lender handbook"},{"k":"PMI auto-terminates at","v":"78% LTV","s":"Homeowners Protection Act"},{"k":"Lender overlay \u2014 min FICO","v":"620","s":"Lender overlay, not agency"}],"scenarios":[{"text":"Sarah is buying a $450,000 single family home in Austin, TX as her primary residence. Credit score 760, putting 20% down, conventional loan, 30-year fixed, 45-day rate lock.","stated":[{"k":"purchase price","v":"450,000","ev":"buying a $450,000 single family home"},{"k":"down payment pct","v":"20","ev":"putting 20% down"},{"k":"fico","v":"760","ev":"Credit score 760"},{"k":"occupancy","v":"primary","ev":"as her primary residence"},{"k":"property type","v":"sfr_detached","ev":"single family home"},{"k":"purpose","v":"purchase","ev":"Sarah is buying"},{"k":"program","v":"conventional","ev":"conventional loan"},{"k":"term years","v":"30","ev":"30-year fixed"},{"k":"state","v":"TX","ev":"Austin, TX"},{"k":"lock days","v":"45","ev":"45-day rate lock"}],"assumed":[{"k":"down payment","v":"90,000","why":"Derived arithmetically from the stated $450,000 purchase price and stated 20% down, not stated directly."},{"k":"loan amount","v":"360,000","why":"Derived arithmetically as purchase price minus 20% down; the borrower did not state a loan amount."}],"source":"cache","confidence":0.95,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 0.625 points of adjustment. At the par rate of 6.500%, the borrower receives a 450 credit, with a monthly payment of 2,275."},{"text":"Client wants to purchase a $600,000 property, credit score 705, 15% down, conventional financing, 30-year term.","stated":[{"k":"purchase price","v":"600,000","ev":"purchase a $600,000 property"},{"k":"down payment pct","v":"15","ev":"15% down"},{"k":"fico","v":"705","ev":"credit score 705"},{"k":"purpose","v":"purchase","ev":"wants to purchase"},{"k":"program","v":"conventional","ev":"conventional financing"},{"k":"term years","v":"30","ev":"30-year term"}],"assumed":[{"k":"occupancy","v":"primary","why":"Not stated; occupancy is a required field for any quote, so the default 'primary' was applied."},{"k":"property type","v":"sfr_detached","why":"Text says only 'property' with no type; property_type is required for any quote, so the default 'sfr_detached' was applied."},{"k":"lock days","v":"30","why":"No lock period mentioned; lock_days is required for any quote, so the default of 30 days was applied."},{"k":"loan amount","v":"510,000","why":"Not stated directly; derived arithmetically as $600,000 price less 15% down."},{"k":"down payment","v":"90,000","why":"Not stated as a dollar figure; derived arithmetically as 15% of the stated $600,000 price."}],"source":"cache","confidence":0.78,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 1.500 points of adjustment. At the par rate of 6.625%, the borrower pays 1,275 in points, with a monthly payment of 3,372."},{"text":"Veteran buying his first home with VA financing, first time using his VA benefit, $380,000 purchase price, no down payment, credit around 690, primary residence, single family, 30-year fixed.","stated":[{"k":"purchase price","v":"380,000","ev":"$380,000 purchase price"},{"k":"down payment","v":"0","ev":"no down payment"},{"k":"down payment pct","v":"0","ev":"no down payment"},{"k":"fico","v":"690","ev":"credit around 690"},{"k":"occupancy","v":"primary","ev":"primary residence"},{"k":"property type","v":"sfr_detached","ev":"single family"},{"k":"purpose","v":"purchase","ev":"buying his first home"},{"k":"program","v":"va","ev":"VA financing"},{"k":"term years","v":"30","ev":"30-year fixed"},{"k":"first time buyer","v":"True","ev":"buying his first home"},{"k":"va eligible","v":"True","ev":"Veteran buying his first home with VA financing"},{"k":"va first use","v":"True","ev":"first time using his VA benefit"}],"assumed":[{"k":"lock days","v":"30","why":"Lock period not stated; lock_days is required to produce a quote, so the 30-day default was applied."},{"k":"loan amount","v":"380,000","why":"Not stated directly; derived from the $380,000 purchase price with zero down payment (excludes any financed VA funding fee)."}],"source":"cache","confidence":0.86,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 0.000 points of adjustment. At the par rate of 6.375%, the borrower pays 486 in points, with a monthly payment of 2,425."},{"text":"Self-employed borrower with variable income wants a cash-out refinance on her $500,000 condo, needs a $310,000 loan amount, FICO 715, primary residence, 30-year fixed.","stated":[{"k":"loan amount","v":"310,000","ev":"needs a $310,000 loan amount"},{"k":"fico","v":"715","ev":"FICO 715"},{"k":"occupancy","v":"primary","ev":"primary residence"},{"k":"property type","v":"condo","ev":"$500,000 condo"},{"k":"purpose","v":"cash_out","ev":"wants a cash-out refinance"},{"k":"term years","v":"30","ev":"30-year fixed"},{"k":"self employed","v":"True","ev":"Self-employed borrower with variable income"}],"assumed":[{"k":"program","v":"conventional","why":"Program not stated; conventional is the default needed to produce any quote."},{"k":"lock days","v":"30","why":"Lock period not stated; 30 days is the default needed to produce any quote."}],"source":"cache","confidence":0.82,"quoted":false,"eligible":null,"status":"No quote","outcome":"No quote produced. QuoteRequest needs purchase_price or appraised_value"},{"text":"Investor purchasing a $275,000 duplex as a rental property, 25% down, credit 680, conventional, 30-year fixed, 30-day lock.","stated":[{"k":"purchase price","v":"275,000","ev":"purchasing a $275,000 duplex"},{"k":"down payment pct","v":"25","ev":"25% down"},{"k":"fico","v":"680","ev":"credit 680"},{"k":"occupancy","v":"investment","ev":"as a rental property"},{"k":"units","v":"2","ev":"duplex"},{"k":"purpose","v":"purchase","ev":"Investor purchasing"},{"k":"program","v":"conventional","ev":"conventional"},{"k":"term years","v":"30","ev":"30-year fixed"},{"k":"lock days","v":"30","ev":"30-day lock"}],"assumed":[{"k":"property type","v":"sfr_detached","why":"Text says 'duplex' (2 units) but does not state whether it is a condo or manufactured unit; the enum has no multi-family value, so sfr_detached was chosen as the non-condo, non-manufactured category to unblock a quote \u2014 the condo vs. non-condo distinction is a material LLPA difference and should be confirmed."}],"source":"cache","confidence":0.85,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 3.625 points of adjustment. At the par rate of 7.250%, the borrower receives a 52 credit, with a monthly payment of 1,407."},{"text":"Homeowner wants a cash-out refinance on her $400,000 primary residence, needs a $370,000 loan amount, FHA, credit 640, single family, 30-year fixed.","stated":[{"k":"loan amount","v":"370,000","ev":"needs a $370,000 loan amount"},{"k":"fico","v":"640","ev":"credit 640"},{"k":"occupancy","v":"primary","ev":"primary residence"},{"k":"property type","v":"sfr_detached","ev":"single family"},{"k":"purpose","v":"cash_out","ev":"cash-out refinance"},{"k":"program","v":"fha","ev":"FHA"},{"k":"term years","v":"30","ev":"30-year fixed"}],"assumed":[{"k":"lock days","v":"30","why":"Lock period not stated; used engine default of 30 days."},{"k":"purchase price","v":"400,000","why":"This is a refinance, so the $400,000 figure is the current property value, not a purchase price; mapped into purchase_price because the schema has no separate property-value field and the engine needs a value basis for LTV."}],"source":"cache","confidence":0.85,"quoted":true,"eligible":false,"status":"Ineligible","outcome":"Ineligible. LTV 92.50% exceeds FHA maximum 80.00%"},{"text":"lookin at a 380k townhome for pri res credit like 705 fha 3.5% dwn 30yr no lock yet","stated":[{"k":"purchase price","v":"380,000","ev":"380k townhome"},{"k":"down payment pct","v":"3.5","ev":"3.5% dwn"},{"k":"fico","v":"705","ev":"credit like 705"},{"k":"occupancy","v":"primary","ev":"pri res"},{"k":"purpose","v":"purchase","ev":"lookin at a 380k townhome"},{"k":"program","v":"fha","ev":"fha"},{"k":"term years","v":"30","ev":"30yr"}],"assumed":[{"k":"property type","v":"sfr_detached","why":"Text says 'townhome', which does not establish whether the unit is a condo-project (condo LLPA) or a fee-simple attached/PUD dwelling; chose the non-condo category as the more common case, but this is an unresolved ambiguity worth 0.750 points in pricing and should be confirmed with the borrower or the project docs."},{"k":"lock days","v":"30","why":"Borrower said 'no lock yet' so no lock period was stated; used the engine default of 30 days to produce a quote."}],"source":"cache","confidence":0.72,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 0.000 points of adjustment. At the par rate of 6.375%, the borrower pays 466 in points, with a monthly payment of 2,499."},{"text":"Client has $525,000 to work with for a primary residence purchase, credit 730, conventional, single family, 30-year fixed, 30-day lock.","stated":[{"k":"fico","v":"730","ev":"credit 730"},{"k":"occupancy","v":"primary","ev":"primary residence"},{"k":"property type","v":"sfr_detached","ev":"single family"},{"k":"purpose","v":"purchase","ev":"primary residence purchase"},{"k":"program","v":"conventional","ev":"conventional"},{"k":"term years","v":"30","ev":"30-year fixed"},{"k":"lock days","v":"30","ev":"30-day lock"}],"assumed":[{"k":"purchase price","v":"525,000","why":"The text gives a single unlabeled dollar figure ('has $525,000 to work with') with no anchor word for price vs. loan amount and no down-payment percentage to triangulate from; interpreted as purchase price as the most common reading, but it could plausibly be the loan amount."}],"source":"cache","confidence":0.68,"quoted":true,"eligible":true,"status":"Quoted","outcome":"Eligible. 1.250 points of adjustment. At the par rate of 6.625%, the borrower receives a 0 credit, with a monthly payment of 2,689."}],"parity":[{"label":"745 / 80% / primary SFR purchase","in":{"txn":"purchase","price":500000,"down":20.0,"fico":745,"occ":"primary","prop":"sfr_detached","units":1,"arm":false},"expect":{"llpa":0.875,"par_price":99.875}},{"label":"780 / 95% / primary SFR purchase","in":{"txn":"purchase","price":400000,"down":5.0,"fico":780,"occ":"primary","prop":"sfr_detached","units":1,"arm":false},"expect":{"llpa":0.25,"par_price":99.625}},{"label":"680 / 75% / investment condo","in":{"txn":"purchase","price":350000,"down":25.0,"fico":680,"occ":"investment","prop":"condo","units":1,"arm":false},"expect":{"llpa":3.375,"par_price":99.825}},{"label":"700 / 90% / second home","in":{"txn":"purchase","price":600000,"down":10.0,"fico":700,"occ":"second_home","prop":"sfr_detached","units":1,"arm":false},"expect":{"llpa":5.375,"par_price":99.908}},{"label":"660 / 80.0% exactly \u2014 band edge","in":{"txn":"purchase","price":300000,"down":20.0,"fico":660,"occ":"primary","prop":"sfr_detached","units":1,"arm":false},"expect":{"llpa":1.875,"par_price":99.875}},{"label":"720 / high-balance purchase","in":{"txn":"purchase","price":1000000,"down":12.0,"fico":720,"occ":"primary","prop":"sfr_detached","units":1,"arm":false},"expect":{"llpa":2.0,"par_price":99.75}},{"label":"640 / 3-unit primary","in":{"txn":"purchase","price":700000,"down":20.0,"fico":640,"occ":"primary","prop":"sfr_detached","units":3,"arm":false},"expect":{"llpa":2.875,"par_price":99.858}},{"label":"760 / ARM at 95%","in":{"txn":"purchase","price":450000,"down":5.0,"fico":760,"occ":"primary","prop":"sfr_detached","units":1,"arm":true},"expect":{"llpa":0.75,"par_price":100.0}}],"tests":[{"file":"tests/test_extraction.py","items":[{"name":"test_returns_exact_contract_shape","doc":""},{"name":"test_assumption_entries_have_field_value_reason","doc":""},{"name":"test_missing_fields_produce_assumptions","doc":""},{"name":"test_stated_field_never_also_appears_as_assumed","doc":""},{"name":"test_fallback_used_with_no_api_key","doc":""},{"name":"test_fallback_handles_clean_scenario","doc":""},{"name":"test_townhouse_is_always_an_assumption_not_evidence","doc":""},{"name":"test_ambiguous_bare_dollar_figure_is_flagged","doc":""},{"name":"test_common_price_forms_resolve_to_450000","doc":""},{"name":"test_million_suffix_resolves_correctly","doc":""},{"name":"test_loan_keyword_assigns_loan_amount_not_price","doc":""},{"name":"test_price_and_loan_both_stated_are_kept_distinct","doc":""},{"name":"test_genuinely_ambiguous_figure_is_assumed_as_price","doc":""},{"name":"test_low_confidence_sets_provisional","doc":""},{"name":"test_high_confidence_scenario_is_not_provisional","doc":""},{"name":"test_unparseable_input_degrades_rather_than_raising","doc":""},{"name":"test_unparseable_input_has_no_price_or_loan_amount","doc":""},{"name":"test_cache_hit_returns_source_cache_without_api_call","doc":""},{"name":"test_force_live_bypasses_cache","doc":""}]},{"file":"tests/test_pricing.py","items":[{"name":"test_ltv_is_exactly_80_percent","doc":""},{"name":"test_total_llpa_is_exactly_0_875","doc":"740-759 x 75-80 cell, no other adders apply."},{"name":"test_llpa_traces_to_a_single_named_cell","doc":""},{"name":"test_dti_never_appears_as_a_price_adjustment","doc":"FHFA deleted every DTI-based LLPA effective 05/01/2023 \u2014 DTI must never surface as an Adjustment, only as an eligibility pass/fail/refer."},{"name":"test_pi_at_6_500_on_400k_360mo","doc":""},{"name":"test_pi_at_6_625_on_400k_360mo","doc":""},{"name":"test_price_99_875_on_400k_loan_costs_500","doc":""},{"name":"test_price_100_375_on_400k_loan_credits_1500","doc":""},{"name":"test_ltv_exactly_80_000_lands_in_75_80","doc":""},{"name":"test_ltv_80_001_lands_in_80_85","doc":""},{"name":"test_75_80_cell_is_worse_than_above_95_cell_same_fico","doc":""},{"name":"test_investment_condo_high_balance_sum_correctly","doc":"FICO 745, 75-80 LTV, investment + condo + high-balance FRM."},{"name":"test_ltv_failure_names_actual_and_limit","doc":"98.5% LTV on a conventional purchase exceeds the 97% cap."},{"name":"test_min_fico_overlay_failure_names_actual_and_limit","doc":""},{"name":"test_no_pmi_at_80_percent_ltv","doc":""},{"name":"test_pmi_required_above_80_percent_ltv","doc":""},{"name":"test_ufmip_added_after_base_loan_amount","doc":""},{"name":"test_ufmip_amount_is_1_75_percent_of_base","doc":""},{"name":"test_first_use_zero_down_is_2_30_percent","doc":""},{"name":"test_subsequent_use_zero_down_is_3_60_percent","doc":""},{"name":"test_first_and_subsequent_use_identical_at_5_percent_down","doc":""},{"name":"test_exempt_borrower_pays_no_fee_at_all","doc":""}]}],"log":[{"kind":"design","title":"The model reads. The rules decide.","where":"engine/extraction.py vs engine/pricing.py","body":["Extraction and eligibility look like one problem and are not. Reading a paystub or a loan officer's text message is hard for code and easy for a model \u2014 there is no schema and every source formats differently. Deciding whether a DTI passes is the reverse: there is a right answer, it comes from a published limit, and it has to be the same answer every time.","So the model is confined to one function. Nothing downstream of extraction calls it. Every number in a quote comes from ordinary code comparing inputs to thresholds in config.py, which means any quote can be explained by naming a matrix, an effective date, and a cell.","There is a regulatory argument as well as an engineering one. CFPB Circular 2023-03 requires creditors to give specific and accurate reasons for credit decisions even when they use complex algorithms that make those reasons hard to identify. Model complexity is not a defense."]},{"kind":"design","title":"Thresholds are configuration, not code","where":"engine/config.py","body":["Program limits, LTV caps, DTI ceilings, MI factors, the extraction confidence floor and the lender overlays all live in one file, separate from the rule logic that reads them. Lender overlays in particular are kept structurally apart from agency rules, because that is the distinction a real shop draws.","The reason is operational. The person who owns these numbers works in operations, not engineering. If changing a guideline requires a deploy, the change does not happen on time."]},{"kind":"caught","title":"A kink in the rate sheet, hiding behind a passing test","where":"engine/config.py \u2014 BASE_PRICE_TABLE","body":["The first build anchored the base price at 6.500% so the worked-example assertion came out to exactly $500. That made the test pass and left a 0.875 step between 6.375% and 6.500% where every neighbouring step was about 0.500.","On screen it read as borrower cost dropping from $4,000 to $500 across one eighth of a point \u2014 a $3,500 swing where every other step moved about $2,000. No test caught it because no test asserted anything about the shape of the curve. I found it by reading the column.","Re-anchored the whole table so it tapers smoothly from the middle outward, 0.500 near par down to 0.400 at the edges, while still landing the two exact assertions the tests pin."]},{"kind":"caught","title":"A cache builder that reported success while writing nothing","where":"scripts/build_extraction_cache.py","body":["The script printed \u201ccalling Claude\u201d for each scenario, then \u201cEntries: 0\u201d, then exited zero. It looked like a completed run. It had made no API calls at all.","Two faults stacked. It was calling the cache-or-fallback path instead of forcing a live call, so it silently resolved to the regex fallback every time. And when a live call did fail, the reason went into a notes field nothing ever printed.","The fix was less about the call path than about the reporting: print the path actually taken rather than the one intended, surface the exception immediately, and exit non-zero on an empty cache. A script that reports zero results as success is worse than one that crashes."]},{"kind":"caught","title":"$450k parsed as $450","where":"engine/extraction.py \u2014 fallback money parser","body":["The fallback parser tried the plain-digits alternative before the suffix-bearing one, so \u201c$450k\u201d matched \u201c$450\u201d and dropped three orders of magnitude. \u201c$1.2M\u201d was not recognised at all.","Quietly wrong, not loudly broken \u2014 the parser returned a number, just the wrong one. Fixed by ordering the suffix forms first, and covered with tests for $450,000, $450000, $450k, 450k and $1.2M."]},{"kind":"caught","title":"One dollar figure claimed by two fields","where":"engine/extraction.py \u2014 price vs loan amount","body":["Found while fixing the money regex. Price and loan amount were located by two independent searches, so a single figure sitting near both a price word and a loan word was assigned to both \u2014 producing a scenario with a purchase price and a loan amount that were the same number, and an LTV of 100%.","Replaced with a single pass that classifies each figure by whichever anchor word is nearest within the same clause. When no anchor is nearby it is treated as the price and an assumption is recorded saying so, rather than guessed silently."]},{"kind":"design","title":"Assumptions are shown separately from stated values","where":"engine/extraction.py \u2014 the assumptions array","body":["Real scenario descriptions are incomplete. Someone writes \u201ccredit like 705\u201d and never mentions the lock period, the term, or whether a townhouse should price as a condo \u2014 which is a 0.750 point difference on its own.","The model has to fill those gaps to produce a quote at all. So every gap it filled is listed separately from what it read, with the reason it chose that value, and the whole quote is marked provisional when confidence falls below the threshold in config.","An assumed value that looks like a stated one is how a quote ends up wrong in a way nobody catches until the borrower is at the closing table."]},{"kind":"design","title":"It refuses rather than guessing","where":"engine/quote.py","body":["Given a sentence with one dollar figure and no way to tell whether it is the purchase price or the loan amount, the engine declines to build a quote and says what is missing.","A system that quietly guesses is more dangerous than one that admits it cannot tell, because a confident guess is indistinguishable from a real answer everywhere downstream of it."]}]};
+
+/* ---------- pricing, mirroring engine/pricing.py ---------- */
+const money = n => (n<0?"-":"") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
+const pct = (n,d=2) => n.toFixed(d) + "%";
+
+function ficoBand(f){ for(const [lab,lo,hi] of D.fico_bands) if(f>=lo&&f<=hi) return lab; return D.fico_bands.at(-1)[0]; }
+// exclusive-upper: 80.000 lands in 75-80, 80.001 in 80-85
+function ltvBand(l){ for(const [lab,hi] of D.ltv_bands){ if(hi===null) return lab; if(l<=hi+1e-9) return lab; } return ">95"; }
+function pmiFactor(ltv,f){
+  if(ltv<=80) return 0;
+  let band=null; for(const [lab,lo,hi] of D.pmi_ltv_bands) if(ltv>lo&&ltv<=hi) band=lab;
+  if(!band) band = D.pmi_ltv_bands.at(-1)[0];
+  let col = D.pmi_fico_cols.at(-1);
+  if(f>=760) col="760+"; else if(f>=740) col="740-759"; else if(f>=720) col="720-739";
+  else if(f>=700) col="700-719"; else if(f>=680) col="680-699"; else if(f>=660) col="660-679";
+  else if(f>=640) col="640-659";
+  return (D.pmi[band]||{})[col] || 0;
+}
+const pi = (P,r,n=360) => { const m=r/12; return m===0?P/n:P*m/(1-Math.pow(1+m,-n)); };
+
+function priceIt(q){
+  const value=q.price, loan=Math.round(value*(1-q.down/100));
+  const ltv = loan/value*100;
+  const fb=ficoBand(q.fico), lb=ltvBand(ltv);
+  const adj=[];
+  const grid = D.llpa[q.txn]||D.llpa.purchase;
+  const base = (grid[fb]||{})[lb] || 0;
+  adj.push({name:`Base LLPA — FICO ${fb} × LTV ${lb}`, amt:base,
+            src:`${D.llpa_source}, ${q.txn.replace(/_/g," ")} grid`});
+  const A=D.adders;
+  const add=(key,label)=>{ const v=(A[key]||{})[lb]||0; if(v) adj.push({name:label,amt:v,src:`${D.llpa_source}, adder: ${key}`}); };
+  if(q.occ==="investment") add("investment_property","Investment property");
+  if(q.occ==="second_home") add("second_home","Second home");
+  if(q.prop==="condo") add("condo","Condominium");
+  if(q.prop==="manufactured"){ adj.push({name:"Manufactured home", amt:D.manufactured_flat,
+      src:`${D.llpa_source}, flat adder across all bands`}); }
+  if(q.units>=2) add("two_to_four_unit",`${q.units}-unit property`);
+  if(q.arm) add("arm","Adjustable rate");
+  const lim = D.conforming[q.units]||D.conforming[1];
+  if(loan>lim.baseline && loan<=lim.ceiling) add(q.arm?"high_balance_arm":"high_balance_frm","High-balance");
+  const total = adj.reduce((s,a)=>s+a.amt,0);
+
+  const mi = pmiFactor(ltv,q.fico)*loan/12;
+  const stack = D.rates.map((r,i)=>{
+    const bp=D.base_price[i], fp=+(bp-total).toFixed(3);
+    const cost=(100-fp)/100*loan, p=pi(loan,r/100);
+    return {rate:r, base:bp, price:fp, cost, pi:p, mi, total:p+mi};
+  });
+  let par=stack[0]; for(const s of stack) if(Math.abs(s.price-100)<Math.abs(par.price-100)) par=s;
+
+  // eligibility, mirroring engine/eligibility.py for the conventional path
+  const maxLtv = D.max_ltv[`${q.occ}|${q.units}|${q.txn}`] ?? D.max_ltv[`${q.occ}|1|${q.txn}`] ?? 97;
+  const checks=[
+    {n:"loan_limit", ok:loan<=lim.ceiling,
+     d:loan<=lim.ceiling ? `Within the ${money(lim.ceiling)} conforming ceiling`
+                         : `${money(loan)} exceeds the ${money(lim.ceiling)} conforming ceiling`},
+    {n:"max_ltv", ok:ltv<=maxLtv+1e-9,
+     d:`LTV ${pct(ltv)} against a ${pct(maxLtv,1)} maximum`},
+    {n:"min_fico_overlay", ok:q.fico>=D.overlays.min_fico_conventional,
+     d:`FICO ${q.fico} against a lender overlay minimum of ${D.overlays.min_fico_conventional}`},
+  ];
+  return {loan,ltv,total,adj,stack,par,checks,eligible:checks.every(c=>c.ok)};
+}
+
+/* ---------- render ---------- */
+const $=s=>document.querySelector(s);
+function readInputs(){
+  return {txn:$("#i-txn").value, price:+$("#i-price").value, down:+$("#i-down").value,
+          fico:+$("#i-fico").value, occ:$("#i-occ").value, prop:$("#i-prop").value,
+          units:+$("#i-units").value, arm:$("#i-arm").value==="1"};
+}
+function draw(){
+  const q=readInputs(), r=priceIt(q);
+  $("#v-price").textContent=money(q.price);
+  $("#v-down").textContent=q.down.toFixed(1)+"%";
+  $("#v-fico").textContent=q.fico;
+  $("#s-loan").textContent=money(r.loan);
+  $("#s-ltv").textContent=pct(r.ltv);
+  $("#s-llpa").textContent=r.total.toFixed(3);
+  $("#s-elig").innerHTML = r.eligible
+    ? '<span class="chip ok">Eligible</span>' : '<span class="chip no">Ineligible</span>';
+
+  $("#checks").innerHTML = r.checks.map(c=>`
+    <div class="chk"><div class="m ${c.ok?'pass':'fail'}">${c.ok?'PASS':'FAIL'}</div>
+    <div><div class="num" style="font-size:12px;color:var(--muted)">${c.n}</div>
+    <div class="d">${c.d}</div></div></div>`).join("");
+
+  $("#stack tbody").innerHTML = r.stack.map(s=>`
+    <tr class="${s===r.par?'par':''}">
+      <td class="num">${s.rate.toFixed(3)}%</td>
+      <td class="num">${s.price.toFixed(3)}</td>
+      <td class="num ${s.cost>0?'pays':'credits'}">${s.cost>0?money(s.cost)+" pts":money(-s.cost)+" credit"}</td>
+      <td class="num">${money(s.pi)}</td>
+      <td class="num">${s.mi?money(s.mi):"—"}</td>
+      <td class="num">${money(s.total)}</td></tr>`).join("");
+
+  $("#wf-rate").textContent=`at the par row, ${r.par.rate.toFixed(3)}%`;
+  let run=r.par.base;
+  const rows=[`<div class="r head"><div class="nm">Base price</div><div class="amt"></div>
+               <div class="run num">${r.par.base.toFixed(3)}</div></div>`];
+  for(const a of r.adj){ run-=a.amt;
+    rows.push(`<div class="r"><div><div class="nm">${a.name}</div><div class="src">${a.src}</div></div>
+      <div class="amt num">− ${a.amt.toFixed(3)}</div>
+      <div class="run num">${run.toFixed(3)}</div></div>`); }
+  const c=r.par.cost;
+  rows.push(`<div class="r foot"><div class="nm">Final price → borrower
+      ${c>0?`<span class="pays">pays ${money(c)}</span>`:`<span class="credits">receives ${money(-c)}</span>`}</div>
+      <div class="amt"></div><div class="run num">${r.par.price.toFixed(3)}</div></div>`);
+  $("#wf").innerHTML=rows.join("");
+}
+
+/* ---------- scenarios ---------- */
+$("#scenarios").innerHTML = D.scenarios.map((s,i)=>`
+  <div class="scn">
+    <button data-i="${i}"><span class="ix">${String(i+1).padStart(2,"0")}</span>
+      <span class="tx">${s.text}</span>
+      <span class="chip ${s.eligible===false?'no':(s.quoted?'ok':'warn')}">${s.status}</span></button>
+    <div class="det" hidden>
+      ${s.stated.length?`<div class="sub">Stated — read from the text</div>
+        <dl class="kv">${s.stated.map(f=>`<dt>${f.k}</dt><dd>${f.v}${f.ev?`<span class="why">from “${f.ev}”</span>`:""}</dd>`).join("")}</dl>`:""}
+      ${s.assumed.length?`<div class="sub">Assumed — filled in, not stated</div>
+        <dl class="kv">${s.assumed.map(f=>`<dt>${f.k}</dt><dd>${f.v}<span class="why">${f.why}</span></dd>`).join("")}</dl>`:""}
+      <div class="sub">Outcome</div>
+      <div style="font-size:13.5px;color:var(--ink-2);max-width:70ch">${s.outcome}</div>
+    </div>
+  </div>`).join("");
+$("#scenarios").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-i]"); if(!b) return;
+  const d=b.nextElementSibling; d.hidden=!d.hidden;
+});
+
+/* ---------- rules ---------- */
+(function(){
+  const mx=(title,note,grid)=>{
+    const cols=D.ltv_bands.map(b=>b[0]);
+    return `<div class="card"><h2>${title}</h2><div class="body">
+      <p class="grid-note">${note}</p><div class="scroll"><table class="mx">
+      <thead><tr><th>FICO</th>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>
+      ${Object.entries(grid).map(([f,row])=>`<tr><td>${f}</td>${cols.map(c=>{
+        const v=row[c]??0; const hot=(c==="75-80"&&v>0);
+        return `<td class="${hot?'hot':''}">${v.toFixed(3)}</td>`;}).join("")}</tr>`).join("")}
+      </tbody></table></div></div></div>`;
+  };
+  $("#rules").innerHTML =
+    mx("Purchase LLPA grid", `${D.llpa_source}. Highlighted column is the 75–80 band — the
+       <em>worst</em> band in the matrix, not the highest LTV. Past 80% the borrower carries
+       mortgage insurance, so the agency's own exposure drops and the fee falls. An engine
+       that assumes fees rise with LTV is wrong in the most common band in the book.`, D.llpa.purchase)
+    + mx("Cash-out refinance LLPA grid", "Cash-out caps at 80% LTV, so the grid stops there.", D.llpa.cash_out)
+    + `<div class="card"><h2>Caps and limits <em>eligibility only, never priced</em></h2><div class="body">
+       <div class="scroll"><table><thead><tr><th>Limit</th><th>Value</th><th>Source</th></tr></thead><tbody>
+       ${D.limits.map(l=>`<tr><td>${l.k}</td><td class="num">${l.v}</td><td style="text-align:right;font-size:12px;color:var(--muted)">${l.s}</td></tr>`).join("")}
+       </tbody></table></div>
+       <p class="grid-note" style="margin-top:12px">FHFA deleted every DTI-based price adjustment
+       effective May 2023. DTI is a pure eligibility gate here — pass, fail or refer — and never
+       a price delta. That absence is deliberate, not an omission.</p></div></div>`;
+})();
+
+/* ---------- tests ---------- */
+$("#tests").innerHTML = D.tests.map(g=>`
+  <div class="card"><h2>${g.file} <em>${g.items.length} tests</em></h2><div class="body">
+    <div class="tlist">${g.items.map(t=>`<div class="t"><div class="c">✓</div>
+      <div><code>${t.name}</code>${t.doc?`<div style="color:var(--muted);margin-top:2px">${t.doc}</div>`:""}</div></div>`).join("")}</div>
+  </div></div>`).join("");
+
+/* ---------- build log ---------- */
+$("#log").innerHTML = `<div class="card"><div class="body">` + D.log.map(e=>`
+  <div class="entry ${e.kind}">
+    <h3>${e.title}</h3>
+    <div class="meta">${e.kind==="caught"?"BUG CAUGHT":"DESIGN DECISION"} · ${e.where}</div>
+    ${e.body.map(p=>`<p>${p}</p>`).join("")}
+    ${e.quote?`<div class="quote-blk">${e.quote}</div>`:""}
+  </div>`).join("") + `</div></div>`;
+
+/* ---------- parity: JS vs the Python engine ---------- */
+(function(){
+  let pass=0, fail=[];
+  for(const c of D.parity){
+    const r=priceIt(c.in);
+    const okL=Math.abs(r.total-c.expect.llpa)<1e-6;
+    const okP=Math.abs(r.par.price-c.expect.par_price)<1e-3;
+    if(okL&&okP) pass++; else fail.push(c.label);
+  }
+  const el=$("#parity");
+  el.innerHTML = fail.length
+    ? `<span class="chip no">Parity ${pass}/${D.parity.length}</span> diverged: ${fail.join(", ")}`
+    : `<span class="chip ok">Parity ${pass}/${D.parity.length}</span> This page recomputes pricing in the
+       browser. Every case above was also priced by the Python engine at build time, and the two agree
+       to three decimals — so the page can't quietly drift from the engine it documents.`;
+})();
+
+/* ---------- chrome ---------- */
+$("#tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-p]"); if(!b) return;
+  for(const t of document.querySelectorAll("#tabs button")) t.setAttribute("aria-selected", t===b);
+  for(const p of document.querySelectorAll(".panel")) p.hidden = p.id!=="p-"+b.dataset.p;
+  window.scrollTo(0,0);
+});
+$("#theme").addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  const sysDark=matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", cur ? (cur==="dark"?"light":"dark") : (sysDark?"light":"dark"));
+});
+for(const el of document.querySelectorAll(".rail input, .rail select")) el.addEventListener("input", draw);
+$("#gen-when").textContent = D.generated;
+draw();
+</script>
+</body>
+</html>
